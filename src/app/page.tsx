@@ -1,103 +1,509 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import Papa from 'papaparse';
+
+interface Activity {
+  [key: string]: string;
+}
+
+const GUIDE_SECTIONS = [
+  'Written Guide - Intro',
+  'Written Guide - Health Routine',
+  'Written Guide - Issues',
+  'Written Guide - Setup',
+  'Written Guide - Walkthrough'
+];
+
+const getEmbedUrl = (url: string): string | null => {
+  if (!url) return null;
+  const match = url.match(/(?:youtu\.be\/|watch\?v=)([\w-]+)/);
+  return match ? `https://www.youtube.com/embed/${match[1]}` : null;
+};
+
+const Video = ({ title, src }: { title: string; src: string }) => (
+  <div>
+    <h3 className="font-semibold mb-2">{title}</h3>
+    <div className="px-0 sm:px-8 md:px-16 lg:px-24">
+      <div className="relative rounded overflow-hidden" style={{ paddingTop: '56.25%' }}>
+        <iframe 
+          className="absolute top-0 left-0 w-full h-full" 
+          src={src} 
+          title={title} 
+          frameBorder="0" 
+          allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" 
+          allowFullScreen 
+        />
+      </div>
+    </div>
+  </div>
+);
+
+const FormattedText = ({ children }: { children?: string }) => {
+  if (!children) return null;
+  
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  
+  const formatTextWithLinks = (text: string) => {
+    const parts = text.split(urlRegex);
+    return parts.map((part, index) => {
+      if (urlRegex.test(part)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:no-underline transition-all duration-200"
+            style={{ color: '#6544E9' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
+  };
+  
+  const lines = children.split('\n');
+  const elements = [];
+  let currentList: string[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      currentList.push(trimmed.substring(2));
+    } else {
+      if (currentList.length > 0) {
+        elements.push(
+          <ul key={`list-${i}`} className="list-disc list-inside mb-2 space-y-1">
+            {currentList.map((item, idx) => (
+              <li key={idx} className="text-gray-700">
+                {formatTextWithLinks(item)}
+              </li>
+            ))}
+          </ul>
+        );
+        currentList = [];
+      }
+      
+      if (trimmed || elements.length === 0) {
+        elements.push(
+          <div key={`text-${i}`} className={`${trimmed ? "mb-2" : "mb-1"} text-gray-700`}>
+            {line ? formatTextWithLinks(line) : '\u00A0'}
+          </div>
+        );
+      }
+    }
+  }
+  
+  if (currentList.length > 0) {
+    elements.push(
+      <ul key="list-final" className="list-disc list-inside mb-2 space-y-1">
+        {currentList.map((item, idx) => (
+          <li key={idx} className="text-gray-700">
+            {formatTextWithLinks(item)}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  
+  return <div>{elements}</div>;
+};
+
+const TipsSection = ({ content }: { content?: string }) => {
+  const [tipsOpen, setTipsOpen] = useState(false);
+  
+  const toggleTips = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTipsOpen(prev => !prev);
+  };
+
+  if (!content) return null;
+
+  return (
+    <div>
+      <button 
+        className="w-full text-left rounded-lg p-3 transition-colors duration-200 focus:outline-none focus:ring-2 bg-gray-100 hover:bg-gray-200"
+        style={{ 
+          border: `2px solid #6544E9`
+        }}
+        onClick={toggleTips}
+      >
+        <h4 className="font-extrabold flex items-center gap-2" style={{ color: '#6544E9' }}>
+          <span className={`transform transition-transform ${tipsOpen ? 'rotate-90' : ''}`}>▶</span>
+          Tips and Tricks 🎯🧠
+        </h4>
+      </button>
+      {tipsOpen && (
+        <div className="mt-2 ml-6">
+          <FormattedText>{content}</FormattedText>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const DemoSection = ({ demoUrl }: { demoUrl?: string }) => {
+  const [demoOpen, setDemoOpen] = useState(false);
+  
+  const toggleDemo = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDemoOpen(prev => !prev);
+  };
+
+  if (!demoUrl) return null;
+
+  return (
+    <div>
+      <button 
+        className="w-full text-left rounded-lg p-3 transition-colors duration-200 focus:outline-none focus:ring-2 bg-gray-100 hover:bg-gray-200"
+        style={{ 
+          border: `2px solid #6544E9`
+        }}
+        onClick={toggleDemo}
+      >
+        <h4 className="font-extrabold flex items-center gap-2" style={{ color: '#6544E9' }}>
+          <span className={`transform transition-transform ${demoOpen ? 'rotate-90' : ''}`}>▶</span>
+          Demonstration video 🎥
+        </h4>
+      </button>
+      {demoOpen && (
+        <div className="mt-2 ml-6">
+          <Video title="" src={demoUrl} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+const Card = ({ act }: { act: Activity }) => {
+  const [open, setOpen] = useState(false);
+  const toggle = (e: React.MouseEvent) => { 
+    e.stopPropagation(); 
+    setOpen(x => !x); 
+  };
+  
+  const whyUrl = getEmbedUrl(act['Video What and why']);
+  const demoUrl = getEmbedUrl(act['Video Demo']);
+
+  return (
+    <div 
+      onClick={toggle} 
+      className="cursor-pointer rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300"
+      style={{ backgroundColor: '#FFFFFE' }}
+    >
+      <header className="p-4 sm:p-6 border-b space-y-2" style={{ borderColor: '#D1D5DB' }}>
+        <h2 className="text-xl sm:text-2xl font-extrabold break-words" style={{ color: '#230E77' }}>
+          {act['Display Name'] || act['code name']}
+        </h2>
+        <pre className="text-sm whitespace-pre-wrap break-words text-gray-700">
+          {act['Short Description']}
+        </pre>
+        <p className="text-xs font-roboto text-gray-400">
+          ID: {act['id']} &middot; Code: {act['code name']}
+        </p>
+      </header>
+
+      <div className="p-4 sm:p-6 space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {act['Type'] && (
+            <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#F3CE5B', color: '#230E77' }}>
+              {act['Type']}
+            </span>
+          )}
+          {act['Pillar'] && (
+            <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#6544E9', color: '#FFFFFE' }}>
+              {act['Pillar']}
+            </span>
+          )}
+          {act['Refold Phase(s)'] && act['Refold Phase(s)'].split(/;+/).map((p, i) => (
+            <span key={i} className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#BFB2F6', color: '#230E77' }}>
+              Phase {p.trim()}
+            </span>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 text-sm text-gray-600">
+          {act['Parent Skills'] && (
+            <div className="break-words">
+              <strong>Parent Skills:</strong> {act['Parent Skills']}
+            </div>
+          )}
+          {act['Child Techniques'] && act['Child Techniques'] !== '#N/A' && (
+            <div className="break-words">
+              <strong>Child Techniques:</strong> {act['Child Techniques']}
+            </div>
+          )}
+          {act['Parent Categories'] && (
+            <div className="break-words">
+              <strong>Parent Categories:</strong> {act['Parent Categories'].split(/;+/).map(cat => cat.trim()).filter(Boolean).join(', ')}
+            </div>
+          )}
+          {act['Alternatives'] && (
+            <div className="break-words">
+              <strong>Alternatives:</strong> {act['Alternatives']}
+            </div>
+          )}
+          {act['Sub-techniques'] && (
+            <div className="break-words">
+              <strong>Sub-techniques:</strong> {act['Sub-techniques']}
+            </div>
+          )}
+        </div>
+
+        {act['Aliases'] && (
+          <p className="italic text-sm break-words font-roboto text-gray-600">
+            {act['Aliases']
+              .split(/\r?\n|; ?/)
+              .map(a => a.trim().replace(/^[-–—]\s*/, ''))
+              .filter(Boolean)
+              .join(', ')}
+          </p>
+        )}
+      </div>
+
+      {open && (
+        <div className="p-4 sm:p-6 bg-gray-50 space-y-6">
+          <FormattedText>{act['Long Description']}</FormattedText>
+          {(whyUrl || demoUrl) && (
+            <div className="space-y-6">
+              {whyUrl && <Video title="What & Why" src={whyUrl} />}
+              <DemoSection demoUrl={demoUrl || undefined} />
+            </div>
+          )}
+          {act['Benefits'] && (
+            <div>
+              <strong style={{ color: '#230E77' }}>Benefits:</strong>
+              <ul className="list-disc list-inside mt-1 text-gray-700">
+                {act['Benefits'].split(/;+/).map((b, i) => (
+                  <li key={i}>{b.trim()}</li>
+                ))}
+              </ul>
+              <hr className="mt-6 border-gray-300" />
+            </div>
+          )}
+          {GUIDE_SECTIONS.map(sec => act[sec] && (
+            <div key={sec}>
+              <h4 className="font-extrabold" style={{ color: '#230E77' }}>
+                {sec.replace('Written Guide - ','')
+                   .replace('Health Routine', 'How this fits into a healthy learning routine')
+                   .replace('Intro', `${act['Display Name'] || act['code name']} Walkthrough`)
+                   .replace('Issues', 'Common issues and questions')}
+              </h4>
+              <FormattedText>{act[sec]}</FormattedText>
+            </div>
+          ))}
+          <TipsSection content={act['Written Guide - Tips and Tricks']} />
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    pillar: '',
+    phase: '',
+    parentSkill: ''
+  });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const response = await fetch('/data/export_activity_library.tsv');
+        const text = await response.text();
+        
+        Papa.parse(text, {
+          header: true,
+          delimiter: '\t',
+          skipEmptyLines: false,
+          newline: '\n',
+          complete: (res) => {
+            const cleaned = (res.data as Record<string, unknown>[]).map((r) => {
+              const o: Activity = {};
+              Object.entries(r).forEach(([k, v]) => {
+                o[k] = typeof v === 'string' ? v.replace(/\r/g, '').replace(/⏎/g, '\n') : v as string;
+              });
+              return o;
+            });
+            
+            // Sort by ID (convert to number for proper sorting)
+            const sorted = cleaned.sort((a, b) => {
+              const idA = parseInt(a.id) || 0;
+              const idB = parseInt(b.id) || 0;
+              return idA - idB;
+            });
+            
+            setActivities(sorted);
+            setLoading(false);
+          }
+        });
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, []);
+
+  const getUniqueOptions = (field: string): string[] => {
+    const values = new Set<string>();
+    activities.forEach(act => {
+      const value = act[field];
+      if (value) {
+        if (field === 'Refold Phase(s)') {
+          value.split(/;+/).forEach(phase => {
+            const trimmed = phase.trim();
+            if (trimmed) values.add(trimmed);
+          });
+        } else if (field === 'Parent Skills') {
+          value.split(/[;,]+/).forEach(skill => {
+            const trimmed = skill.trim();
+            if (trimmed) values.add(trimmed);
+          });
+        } else {
+          values.add(value.trim());
+        }
+      }
+    });
+    return Array.from(values).sort();
+  };
+
+  const clearFilters = () => {
+    setFilters({ pillar: '', phase: '', parentSkill: '' });
+  };
+
+  const filtered = activities.filter(a => {
+    const matchesQuery = Object.values(a).join(' ').toLowerCase().includes(query.toLowerCase());
+    const matchesPillar = !filters.pillar || a['Pillar'] === filters.pillar;
+    const matchesPhase = !filters.phase || 
+      (a['Refold Phase(s)'] && a['Refold Phase(s)'].split(/;+/).some(phase => phase.trim() === filters.phase));
+    const matchesParentSkill = !filters.parentSkill || 
+      (a['Parent Skills'] && a['Parent Skills'].split(/[;,]+/).some(skill => skill.trim() === filters.parentSkill));
+    
+    return matchesQuery && matchesPillar && matchesPhase && matchesParentSkill;
+  });
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <div className="container mx-auto px-4 py-6 max-w-6xl">
+        <header className="mb-8 text-center">
+          <h1 className="text-3xl sm:text-4xl font-extrabold" style={{ color: '#230E77' }}>
+            Refold Activity Library
+          </h1>
+          <p className="mt-2 text-sm sm:text-base font-roboto text-gray-600">
+            {loading ? 'Loading activity data...' : `Loaded ${activities.length} activities`}
+          </p>
+        </header>
+
+        <div className="flex flex-col gap-4 mb-8">
+          <input 
+            type="text" 
+            value={query} 
+            onChange={e => setQuery(e.target.value)} 
+            placeholder="Search activities..." 
+            className="w-full px-4 py-3 border-2 rounded-lg bg-white shadow-sm text-base focus:ring-2 focus:ring-opacity-50 text-gray-800"
+            style={{ 
+              borderColor: '#D1D5DB'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#6544E9'}
+            onBlur={(e) => e.target.style.borderColor = '#D1D5DB'}
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        
+        {activities.length > 0 && (
+          <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border" style={{ borderColor: '#D1D5DB' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+              <div>
+                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700">Pillar</label>
+                <select 
+                  value={filters.pillar} 
+                  onChange={e => setFilters(prev => ({...prev, pillar: e.target.value}))}
+                  className="w-full px-3 py-2 border rounded bg-white shadow-sm text-sm focus:ring-2 text-gray-800"
+                  style={{ 
+                    borderColor: '#D1D5DB'
+                  }}
+                >
+                  <option value="">All Pillars</option>
+                  {getUniqueOptions('Pillar').map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700">Phase</label>
+                <select 
+                  value={filters.phase} 
+                  onChange={e => setFilters(prev => ({...prev, phase: e.target.value}))}
+                  className="w-full px-3 py-2 border rounded bg-white shadow-sm text-sm focus:ring-2 text-gray-800"
+                  style={{ 
+                    borderColor: '#D1D5DB'
+                  }}
+                >
+                  <option value="">All Phases</option>
+                  {getUniqueOptions('Refold Phase(s)').map(option => (
+                    <option key={option} value={option}>Phase {option}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700">Parent Skill</label>
+                <select 
+                  value={filters.parentSkill} 
+                  onChange={e => setFilters(prev => ({...prev, parentSkill: e.target.value}))}
+                  className="w-full px-3 py-2 border rounded bg-white shadow-sm text-sm focus:ring-2 text-gray-800"
+                  style={{ 
+                    borderColor: '#D1D5DB'
+                  }}
+                >
+                  <option value="">All Parent Skills</option>
+                  {getUniqueOptions('Parent Skills').map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <button 
+                onClick={clearFilters}
+                className="px-4 py-2 text-sm border rounded hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 bg-white"
+                style={{ 
+                  color: '#6544E9',
+                  borderColor: '#6544E9'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#6544E9'
+                  e.currentTarget.style.color = '#FFFFFE'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#FFFFFE'
+                  e.currentTarget.style.color = '#6544E9'
+                }}
+              >
+                Clear Filters
+              </button>
+            </div>
+            
+            <div className="mt-3 text-sm font-roboto text-gray-600">
+              Showing {filtered.length} of {activities.length} activities
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-6">
+          {filtered.map((a, i) => <Card key={i} act={a} />)}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,26 +1,46 @@
-@import "tailwindcss";
+/* Using Tailwind CSS via CDN, so no need for imports */
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+html {
+  font-family: 'Inter', system-ui, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.font-roboto {
+  font-family: 'Roboto', system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Ensure proper text wrapping on mobile */
+* {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Ensure iframe responsiveness */
+iframe {
+  max-width: 100%;
+}
+
+/* Better focus styles for accessibility */
+button:focus,
+select:focus,
+input:focus {
+  outline: 2px solid #6544E9;
+  outline-offset: 2px;
 }
