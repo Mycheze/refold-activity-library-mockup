@@ -187,18 +187,65 @@ const Card = ({ act }: { act: Activity }) => {
     e.stopPropagation(); 
     setOpen(x => !x); 
   };
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't toggle if clicking on the external link icon
+    if ((e.target as HTMLElement).closest('.external-link-icon')) {
+      return;
+    }
+    toggle(e);
+  };
+
+  const handleMiddleClick = (e: React.MouseEvent) => {
+    if (e.button === 1) { // Middle mouse button
+      e.preventDefault();
+      window.open(`/activity/${act.id}`, '_blank');
+    }
+  };
+
+  const handleExternalLinkClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.open(`/activity/${act.id}`, '_blank');
+  };
   
   const whyUrl = getEmbedUrl(act['Video What and why']);
   const demoUrl = getEmbedUrl(act['Video Demo']);
 
   return (
     <div 
-      onClick={toggle} 
-      className="cursor-pointer rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300"
+      onClick={handleCardClick}
+      onMouseDown={handleMiddleClick}
+      className="cursor-pointer rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300 relative"
       style={{ backgroundColor: '#FFFFFE' }}
     >
+      {/* External link icon */}
+      <button
+        onClick={handleExternalLinkClick}
+        className="external-link-icon absolute top-3 right-3 p-2 rounded-lg transition-colors duration-200 hover:bg-gray-100 focus:outline-none focus:ring-2"
+        style={{ 
+          color: '#6544E9',
+          zIndex: 10
+        }}
+        title="Open in new tab"
+      >
+        <svg 
+          width="16" 
+          height="16" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+        >
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+          <polyline points="15,3 21,3 21,9"></polyline>
+          <line x1="10" y1="14" x2="21" y2="3"></line>
+        </svg>
+      </button>
+
       <header className="p-4 sm:p-6 border-b space-y-2" style={{ borderColor: '#D1D5DB' }}>
-        <h2 className="text-xl sm:text-2xl font-extrabold break-words" style={{ color: '#230E77' }}>
+        <h2 className="text-xl sm:text-2xl font-extrabold break-words pr-8" style={{ color: '#230E77' }}>
           {act['Display Name'] || act['code name']}
         </h2>
         <pre className="text-sm whitespace-pre-wrap break-words text-gray-700">
