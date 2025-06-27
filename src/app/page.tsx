@@ -356,11 +356,29 @@ export default function Home() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const [filters, setFilters] = useState({
     pillar: '',
     phase: '',
     parentSkill: ''
   });
+
+  // Handle scroll to show/hide scroll to top button
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -551,6 +569,34 @@ export default function Home() {
           {filtered.map((a, i) => <Card key={i} act={a} />)}
         </div>
       </div>
+
+      {/* Scroll to Top Button */}
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-6 right-6 p-3 rounded-full shadow-lg transition-all duration-300 hover:shadow-xl focus:outline-none focus:ring-2 z-50"
+          style={{ 
+            backgroundColor: '#6544E9',
+            color: '#FFFFFE'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#230E77'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6544E9'}
+          title="Scroll to top"
+        >
+          <svg 
+            width="20" 
+            height="20" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="2" 
+            strokeLinecap="round" 
+            strokeLinejoin="round"
+          >
+            <polyline points="18,15 12,9 6,15"></polyline>
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
