@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 import FeedbackButton from '../components/FeedbackButton';
+import IntroModal from '../components/IntroModal';
 
 interface Activity {
   [key: string]: string;
@@ -478,32 +479,37 @@ export default function Home() {
               Refold Activity Library
             </h1>
             
-            {/* General feedback button - larger and more visible */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                window.open('https://form.typeform.com/to/JvsO9bHi', '_blank');
-              }}
-              className="px-4 py-2 rounded-lg transition-colors duration-200 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 flex items-center gap-2 bg-gray-100 border border-gray-300"
-              style={{ color: '#6B7280' }}
-              title="General feedback"
-            >
-              <svg 
-                width="18" 
-                height="18" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
+            <div className="flex items-center gap-2">
+              {/* Intro/Help modal */}
+              <IntroModal showInitially={true} />
+              
+              {/* General feedback button - larger and more visible */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open('https://form.typeform.com/to/JvsO9bHi', '_blank');
+                }}
+                className="px-4 py-2 rounded-lg transition-colors duration-200 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 flex items-center gap-2 bg-gray-100 border border-gray-300"
+                style={{ color: '#6B7280' }}
+                title="General feedback"
               >
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-              </svg>
-              <span className="text-sm font-medium">Give Feedback</span>
-            </button>
+                <svg 
+                  width="18" 
+                  height="18" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span className="text-sm font-medium">Give Feedback</span>
+              </button>
+            </div>
           </div>
           
           <p className="mt-2 text-sm sm:text-base font-roboto text-gray-600">
