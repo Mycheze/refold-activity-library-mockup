@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Papa from 'papaparse';
+import FeedbackButton from '../components/FeedbackButton';
 
 interface Activity {
   [key: string]: string;
@@ -189,8 +190,9 @@ const Card = ({ act }: { act: Activity }) => {
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // Don't toggle if clicking on the external link icon
-    if ((e.target as HTMLElement).closest('.external-link-icon')) {
+    // Don't toggle if clicking on the external link icon or feedback button
+    if ((e.target as HTMLElement).closest('.external-link-icon') || 
+        (e.target as HTMLElement).closest('button')) {
       return;
     }
     toggle(e);
@@ -244,6 +246,15 @@ const Card = ({ act }: { act: Activity }) => {
         </svg>
       </button>
 
+      {/* Activity feedback button */}
+      <div className="absolute bottom-3 right-3 z-10">
+        <FeedbackButton 
+          type="activity" 
+          activityId={act.id} 
+          activityName={act['Display Name'] || act['code name']}
+        />
+      </div>
+
       <header className="p-4 sm:p-6 border-b space-y-2" style={{ borderColor: '#D1D5DB' }}>
         <h2 className="text-xl sm:text-2xl font-extrabold break-words pr-8" style={{ color: '#230E77' }}>
           {act['Display Name'] || act['code name']}
@@ -256,7 +267,7 @@ const Card = ({ act }: { act: Activity }) => {
         </p>
       </header>
 
-      <div className="p-4 sm:p-6 space-y-4">
+      <div className="p-4 sm:p-6 space-y-4 pb-12">
         <div className="flex flex-wrap gap-2">
           {act['Type'] && (
             <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#F3CE5B', color: '#230E77' }}>
@@ -462,9 +473,39 @@ export default function Home() {
     <div className="min-h-screen bg-gray-100">
       <div className="container mx-auto px-4 py-6 max-w-6xl">
         <header className="mb-8 text-center">
-          <h1 className="text-3xl sm:text-4xl font-extrabold" style={{ color: '#230E77' }}>
-            Refold Activity Library
-          </h1>
+          <div className="flex justify-center items-center gap-4 mb-4">
+            <h1 className="text-3xl sm:text-4xl font-extrabold" style={{ color: '#230E77' }}>
+              Refold Activity Library
+            </h1>
+            
+            {/* General feedback button - larger and more visible */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open('https://form.typeform.com/to/JvsO9bHi', '_blank');
+              }}
+              className="px-4 py-2 rounded-lg transition-colors duration-200 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 flex items-center gap-2 bg-gray-100 border border-gray-300"
+              style={{ color: '#6B7280' }}
+              title="General feedback"
+            >
+              <svg 
+                width="18" 
+                height="18" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span className="text-sm font-medium">Give Feedback</span>
+            </button>
+          </div>
+          
           <p className="mt-2 text-sm sm:text-base font-roboto text-gray-600">
             {loading ? 'Loading activity data...' : `Loaded ${activities.length} activities`}
           </p>

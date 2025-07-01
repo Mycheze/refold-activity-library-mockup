@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 import Link from 'next/link';
+import FeedbackButton from '../../../components/FeedbackButton';
 
 interface Activity {
   [key: string]: string;
@@ -319,8 +320,19 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
         </div>
 
         {/* Activity Card */}
-        <div className="bg-white rounded-xl shadow-lg">
-          <header className="p-4 sm:p-6 border-b space-y-2" style={{ borderColor: '#D1D5DB' }}>
+        <div className="bg-white rounded-xl shadow-lg relative">
+          {/* Activity feedback button - positioned in top right of card */}
+          <div className="absolute top-4 right-4 z-10">
+            <FeedbackButton 
+              type="activity" 
+              activityId={activity.id} 
+              activityName={activity['Display Name'] || activity['code name']}
+              size="medium"
+              className="bg-white shadow-sm border border-gray-200"
+            />
+          </div>
+
+          <header className="p-4 sm:p-6 border-b space-y-2 pr-16" style={{ borderColor: '#D1D5DB' }}>
             <h1 className="text-2xl sm:text-3xl font-extrabold break-words" style={{ color: '#230E77' }}>
               {activity['Display Name'] || activity['code name']}
             </h1>
