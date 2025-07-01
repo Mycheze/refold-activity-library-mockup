@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 import FeedbackButton from '../components/FeedbackButton';
 import IntroModal from '../components/IntroModal';
+import { useStarredActivities } from '../contexts/StarredContext';
 
 interface Activity {
   [key: string]: string;
@@ -183,20 +184,23 @@ const DemoSection = ({ demoUrl }: { demoUrl?: string }) => {
   );
 };
 
-const Card = ({ act }: { act: Activity }) => {
-  const [open, setOpen] = useState(false);
-  const toggle = (e: React.MouseEvent) => { 
-    e.stopPropagation(); 
-    setOpen(x => !x); 
-  };
+interface CardProps {
+  act: Activity;
+  isOpen: boolean;
+  onToggle: (activityId: string) => void;
+  cardRef?: (el: HTMLDivElement | null) => void;
+}
+
+const Card = ({ act, isOpen, onToggle, cardRef }: CardProps) => {
+  const { isStarred, toggleStar } = useStarredActivities();
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // Don't toggle if clicking on the external link icon or feedback button
+    // Don't toggle if clicking on the external link icon, feedback button, or star button
     if ((e.target as HTMLElement).closest('.external-link-icon') || 
         (e.target as HTMLElement).closest('button')) {
       return;
     }
-    toggle(e);
+    onToggle(act.id);
   };
 
   const handleMiddleClick = (e: React.MouseEvent) => {
@@ -210,42 +214,91 @@ const Card = ({ act }: { act: Activity }) => {
     e.stopPropagation();
     window.open(`/activity/${act.id}`, '_blank');
   };
+
+  const handleStarClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    // If this card is currently open and we're starring it, we'll need to follow it
+    const wasStarred = isStarred(act.id);
+    const willBeStarred = !wasStarred;
+    
+    // Toggle the star
+    toggleStar(act.id);
+    
+    // If card is open and moving to starred section, we'll scroll to it after re-render
+    if (isOpen && willBeStarred) {
+      // Use a short timeout to allow React to re-render the moved card
+      setTimeout(() => {
+        const starredCard = document.querySelector(`[data-activity-id="${act.id}"]`);
+        if (starredCard) {
+          starredCard.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+        }
+      }, 100);
+    }
+  };
   
   const whyUrl = getEmbedUrl(act['Video What and why']);
   const demoUrl = getEmbedUrl(act['Video Demo']);
 
   return (
     <div 
+      ref={cardRef}
+      data-activity-id={act.id}
       onClick={handleCardClick}
       onMouseDown={handleMiddleClick}
       className="cursor-pointer rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300 relative"
       style={{ backgroundColor: '#FFFFFE' }}
     >
-      {/* External link icon */}
-      <button
-        onClick={handleExternalLinkClick}
-        className="external-link-icon absolute top-3 right-3 p-2 rounded-lg transition-colors duration-200 hover:bg-gray-100 focus:outline-none focus:ring-2"
-        style={{ 
-          color: '#6544E9',
-          zIndex: 10
-        }}
-        title="Open in new tab"
-      >
-        <svg 
-          width="16" 
-          height="16" 
-          viewBox="0 0 24 24" 
-          fill="none" 
-          stroke="currentColor" 
-          strokeWidth="2" 
-          strokeLinecap="round" 
-          strokeLinejoin="round"
+      {/* Top right buttons */}
+      <div className="absolute top-3 right-3 flex items-center gap-1 z-10">
+        <button
+          onClick={handleStarClick}
+          className="p-1.5 rounded-lg transition-all duration-200 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-300"
+          style={{ 
+            color: isStarred(act.id) ? '#F59E0B' : '#9CA3AF'
+          }}
+          title={isStarred(act.id) ? 'Remove from starred' : 'Add to starred'}
         >
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-          <polyline points="15,3 21,3 21,9"></polyline>
-          <line x1="10" y1="14" x2="21" y2="3"></line>
-        </svg>
-      </button>
+          <svg 
+            width="16" 
+            height="16" 
+            viewBox="0 0 24 24" 
+            fill={isStarred(act.id) ? 'currentColor' : 'none'}
+            stroke="currentColor" 
+            strokeWidth="2" 
+            strokeLinecap="round" 
+            strokeLinejoin="round"
+          >
+            <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"></polygon>
+          </svg>
+        </button>
+        <button
+          onClick={handleExternalLinkClick}
+          className="external-link-icon p-2 rounded-lg transition-colors duration-200 hover:bg-gray-100 focus:outline-none focus:ring-2"
+          style={{ 
+            color: '#6544E9'
+          }}
+          title="Open in new tab"
+        >
+          <svg 
+            width="16" 
+            height="16" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="2" 
+            strokeLinecap="round" 
+            strokeLinejoin="round"
+          >
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15,3 21,3 21,9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </button>
+      </div>
 
       {/* Activity feedback button */}
       <div className="absolute bottom-3 right-3 z-10">
@@ -326,7 +379,7 @@ const Card = ({ act }: { act: Activity }) => {
         )}
       </div>
 
-      {open && (
+      {isOpen && (
         <div className="p-4 sm:p-6 bg-gray-50 space-y-6">
           <FormattedText>{act['Long Description']}</FormattedText>
           {(whyUrl || demoUrl) && (
@@ -369,11 +422,14 @@ export default function Home() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState({
     pillar: '',
     phase: '',
     parentSkill: ''
   });
+
+  const { starredIds, isLoaded: starredLoaded } = useStarredActivities();
 
   // Handle scroll to show/hide scroll to top button
   useEffect(() => {
@@ -389,6 +445,18 @@ export default function Home() {
     window.scrollTo({
       top: 0,
       behavior: 'smooth'
+    });
+  };
+
+  const toggleCard = (activityId: string) => {
+    setExpandedCards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(activityId)) {
+        newSet.delete(activityId);
+      } else {
+        newSet.add(activityId);
+      }
+      return newSet;
     });
   };
 
@@ -470,6 +538,10 @@ export default function Home() {
     return matchesQuery && matchesPillar && matchesPhase && matchesParentSkill;
   });
 
+  // Split into starred and non-starred activities
+  const starredActivities = filtered.filter(a => starredIds.includes(a.id));
+  const regularActivities = filtered.filter(a => !starredIds.includes(a.id));
+
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="container mx-auto px-4 py-6 max-w-6xl">
@@ -514,6 +586,7 @@ export default function Home() {
           
           <p className="mt-2 text-sm sm:text-base font-roboto text-gray-600">
             {loading ? 'Loading activity data...' : `Loaded ${activities.length} activities`}
+            {starredLoaded && starredIds.length > 0 && ` • ${starredIds.length} starred`}
           </p>
         </header>
 
@@ -608,12 +681,68 @@ export default function Home() {
             
             <div className="mt-3 text-sm font-roboto text-gray-600">
               Showing {filtered.length} of {activities.length} activities
+              {starredActivities.length > 0 && ` (${starredActivities.length} starred)`}
             </div>
           </div>
         )}
 
         <div className="space-y-6">
-          {filtered.map((a, i) => <Card key={i} act={a} />)}
+          {/* Starred Activities Section */}
+          {starredActivities.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <svg 
+                  width="20" 
+                  height="20" 
+                  viewBox="0 0 24 24" 
+                  fill="currentColor"
+                  style={{ color: '#F59E0B' }}
+                >
+                  <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"></polygon>
+                </svg>
+                <h2 className="text-xl font-extrabold" style={{ color: '#230E77' }}>
+                  Starred Activities ({starredActivities.length})
+                </h2>
+              </div>
+              <div className="space-y-6">
+                {starredActivities.map((a) => (
+                  <Card 
+                    key={`starred-${a.id}`} 
+                    act={a} 
+                    isOpen={expandedCards.has(a.id)}
+                    onToggle={toggleCard}
+                  />
+                ))}
+              </div>
+              
+              {regularActivities.length > 0 && (
+                <div className="my-8">
+                  <hr className="border-gray-300" />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Regular Activities Section */}
+          {regularActivities.length > 0 && (
+            <div>
+              {starredActivities.length > 0 && (
+                <h2 className="text-xl font-extrabold mb-4" style={{ color: '#230E77' }}>
+                  All Activities ({regularActivities.length})
+                </h2>
+              )}
+              <div className="space-y-6">
+                {regularActivities.map((a) => (
+                  <Card 
+                    key={`regular-${a.id}`} 
+                    act={a} 
+                    isOpen={expandedCards.has(a.id)}
+                    onToggle={toggleCard}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

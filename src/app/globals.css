@@ -5,7 +5,7 @@ html {
 }
 
 .font-roboto {
-  font-family: 'Roboto', system-ui, sans-serif;
+  font-family: var(--font-roboto), system-ui, sans-serif;
 }
 
 /* Ensure proper text wrapping on mobile */

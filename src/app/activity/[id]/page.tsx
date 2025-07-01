@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 import Link from 'next/link';
 import FeedbackButton from '../../../components/FeedbackButton';
+import StarButton from '../../../components/StarButton';
 
 interface Activity {
   [key: string]: string;
@@ -321,8 +322,9 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
 
         {/* Activity Card */}
         <div className="bg-white rounded-xl shadow-lg relative">
-          {/* Activity feedback button - positioned in top right of card */}
-          <div className="absolute top-4 right-4 z-10">
+          {/* Top right buttons */}
+          <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
+            <StarButton activityId={activity.id} size="medium" />
             <FeedbackButton 
               type="activity" 
               activityId={activity.id} 
@@ -332,7 +334,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
             />
           </div>
 
-          <header className="p-4 sm:p-6 border-b space-y-2 pr-16" style={{ borderColor: '#D1D5DB' }}>
+          <header className="p-4 sm:p-6 border-b space-y-2 pr-20" style={{ borderColor: '#D1D5DB' }}>
             <h1 className="text-2xl sm:text-3xl font-extrabold break-words" style={{ color: '#230E77' }}>
               {activity['Display Name'] || activity['code name']}
             </h1>
