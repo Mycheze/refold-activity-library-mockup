@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, Roboto } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/react'
 import './globals.css'
 import { StarredProvider } from '../contexts/StarredContext'
 
@@ -42,6 +43,7 @@ export default function RootLayout({
         <StarredProvider>
           {children}
         </StarredProvider>
+        <Analytics />
       </body>
     </html>
   )
