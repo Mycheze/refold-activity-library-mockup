@@ -18,7 +18,7 @@ You can browse it whenever you'd like, save and refer back to frequent activitie
 
 The **7 Phases** are our new model for the different phases of learning a language. They're very similar to the original 4 Stages in the [first version of the Refold Roadmap](https://refold.la/simplified/). But but Stages 2, 3 and 4 were converted into 2 phases each, giving us 7 rather than 4. 
 
-To watch a video explaining the 7 Phases, click here. If you'd prefer to read about them, they're in [our free Learning Guides](https://refold.la/how-to-learn-spanish/).
+To watch a video explaining the 7 Phases, [click here](https://youtu.be/Jo4ds4mxuhU). If you'd prefer to read about them, they're in [our free Learning Guides](https://refold.la/how-to-learn-spanish/).
 
 The **3 Pillars** of immersion learning, if you prefer to watch a video about it, [click here](https://youtu.be/jStLYOJL19U). But the three pillars are: interactive immersion, freeflow immersion and priming. All immersion activities can be grouped into one of these three. 
 
