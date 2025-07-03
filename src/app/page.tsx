@@ -300,7 +300,7 @@ const Card = ({ act, isOpen, onToggle, cardRef }: CardProps) => {
         </button>
       </div>
 
-      {/* Activity feedback button */}
+      {/* Activity feedback button - bottom right */}
       <div className="absolute bottom-3 right-3 z-10">
         <FeedbackButton 
           type="activity" 
@@ -321,7 +321,7 @@ const Card = ({ act, isOpen, onToggle, cardRef }: CardProps) => {
         </p>
       </header>
 
-      <div className="p-4 sm:p-6 space-y-4 pb-12">
+      <div className="p-4 sm:p-6 space-y-4">
         <div className="flex flex-wrap gap-2">
           {act['Type'] && (
             <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#F3CE5B', color: '#230E77' }}>
@@ -377,6 +377,21 @@ const Card = ({ act, isOpen, onToggle, cardRef }: CardProps) => {
               .join(', ')}
           </p>
         )}
+
+        {/* Expand/Collapse indicator - creates its own space at bottom */}
+        <div className="flex justify-between items-end mt-4">
+          <div 
+            className="px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 hover:bg-gray-200 cursor-pointer"
+            style={{ 
+              color: '#6544E9',
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              border: '1px solid #E5E7EB'
+            }}
+          >
+            {isOpen ? 'Click to hide' : 'Click to expand'}
+          </div>
+          <div></div> {/* Empty div to maintain spacing for feedback button */}
+        </div>
       </div>
 
       {isOpen && (
@@ -546,7 +561,7 @@ export default function Home() {
     <div className="min-h-screen bg-gray-100">
       <div className="container mx-auto px-4 py-6 max-w-6xl">
         <header className="mb-8 text-center">
-          <div className="flex justify-center items-center gap-4 mb-4">
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-4">
             <h1 className="text-3xl sm:text-4xl font-extrabold" style={{ color: '#230E77' }}>
               Refold Activity Library
             </h1>
