@@ -1,13 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 import FeedbackButton from '../components/FeedbackButton';
 import IntroModal from '../components/IntroModal';
+import ActivityLink from '../components/ActivityLink';
 import { useStarredActivities } from '../contexts/StarredContext';
 
 interface Activity {
   [key: string]: string;
+}
+
+interface FormattedTextProps {
+  children?: string;
+  activities?: Activity[];
+  currentActivityId?: string;
 }
 
 const GUIDE_SECTIONS = [
@@ -42,31 +49,111 @@ const Video = ({ title, src }: { title: string; src: string }) => (
   </div>
 );
 
-const FormattedText = ({ children }: { children?: string }) => {
+const FormattedText = ({ children, activities = [], currentActivityId }: FormattedTextProps) => {
   if (!children) return null;
+  
+  // Build activity lookup structures
+  const activityMap = new Map<string, Activity>();
+  const sortedActivityNames: string[] = [];
+  
+  if (activities.length > 0) {
+    activities.forEach(activity => {
+      const displayName = activity['Display Name'] || activity['code name'];
+      if (displayName && activity.id !== currentActivityId && displayName.toLowerCase() !== 'other') {
+        activityMap.set(displayName.toLowerCase(), activity);
+        sortedActivityNames.push(displayName);
+      }
+    });
+    
+    // Sort by length (longest first) for proper matching
+    sortedActivityNames.sort((a, b) => b.length - a.length);
+  }
+  
+  const escapeRegex = (str: string) => {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  };
+  
+  const processActivityLinks = (text: string): (string | React.JSX.Element)[] => {
+    if (sortedActivityNames.length === 0) {
+      return [text];
+    }
+    
+    let result: (string | React.JSX.Element)[] = [text];
+    
+    sortedActivityNames.forEach((activityName, index) => {
+      const newResult: (string | React.JSX.Element)[] = [];
+      
+      result.forEach((item) => {
+        if (typeof item === 'string') {
+          const regex = new RegExp(`\\b${escapeRegex(activityName)}\\b`, 'gi');
+          const parts = item.split(regex);
+          const matches = item.match(regex) || [];
+          
+          for (let i = 0; i < parts.length; i++) {
+            if (parts[i]) {
+              newResult.push(parts[i]);
+            }
+            if (i < matches.length) {
+              const activity = activityMap.get(activityName.toLowerCase());
+              if (activity) {
+                newResult.push(
+                  <ActivityLink key={`${activity.id}-${index}-${i}`} activity={activity}>
+                    {matches[i]}
+                  </ActivityLink>
+                );
+              } else {
+                newResult.push(matches[i]);
+              }
+            }
+          }
+        } else {
+          newResult.push(item);
+        }
+      });
+      
+      result = newResult;
+    });
+    
+    return result;
+  };
   
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   
   const formatTextWithLinks = (text: string) => {
-    const parts = text.split(urlRegex);
-    return parts.map((part, index) => {
-      if (urlRegex.test(part)) {
-        return (
-          <a
-            key={index}
-            href={part}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:no-underline transition-all duration-200"
-            style={{ color: '#6544E9' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {part}
-          </a>
-        );
+    // First process activity links
+    const withActivityLinks = processActivityLinks(text);
+    
+    // Then process URL links on string parts only
+    const finalResult: (string | React.JSX.Element)[] = [];
+    
+    withActivityLinks.forEach((item, itemIndex) => {
+      if (typeof item === 'string') {
+        const parts = item.split(urlRegex);
+        parts.forEach((part, partIndex) => {
+          if (urlRegex.test(part)) {
+            finalResult.push(
+              <a
+                key={`url-${itemIndex}-${partIndex}`}
+                href={part}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:no-underline transition-all duration-200"
+                style={{ color: '#6544E9' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {part}
+              </a>
+            );
+          } else if (part) {
+            finalResult.push(part);
+          }
+        });
+      } else {
+        finalResult.push(item);
       }
-      return part;
     });
+    
+    return finalResult;
   };
   
   const lines = children.split('\n');
@@ -118,7 +205,11 @@ const FormattedText = ({ children }: { children?: string }) => {
   return <div>{elements}</div>;
 };
 
-const TipsSection = ({ content }: { content?: string }) => {
+const TipsSection = ({ content, activities = [], currentActivityId }: { 
+  content?: string; 
+  activities?: Activity[];
+  currentActivityId?: string;
+}) => {
   const [tipsOpen, setTipsOpen] = useState(false);
   
   const toggleTips = (e: React.MouseEvent) => {
@@ -144,7 +235,7 @@ const TipsSection = ({ content }: { content?: string }) => {
       </button>
       {tipsOpen && (
         <div className="mt-2 ml-6">
-          <FormattedText>{content}</FormattedText>
+          <FormattedText activities={activities} currentActivityId={currentActivityId}>{content}</FormattedText>
         </div>
       )}
     </div>
@@ -189,9 +280,10 @@ interface CardProps {
   isOpen: boolean;
   onToggle: (activityId: string) => void;
   cardRef?: (el: HTMLDivElement | null) => void;
+  activities: Activity[];
 }
 
-const Card = ({ act, isOpen, onToggle, cardRef }: CardProps) => {
+const Card = ({ act, isOpen, onToggle, cardRef, activities }: CardProps) => {
   const { isStarred, toggleStar } = useStarredActivities();
 
   const handleCardClick = (e: React.MouseEvent) => {
@@ -300,7 +392,7 @@ const Card = ({ act, isOpen, onToggle, cardRef }: CardProps) => {
         </button>
       </div>
 
-      {/* Activity feedback button - bottom right */}
+      {/* Activity feedback button */}
       <div className="absolute bottom-3 right-3 z-10">
         <FeedbackButton 
           type="activity" 
@@ -321,7 +413,7 @@ const Card = ({ act, isOpen, onToggle, cardRef }: CardProps) => {
         </p>
       </header>
 
-      <div className="p-4 sm:p-6 space-y-4">
+      <div className="p-4 sm:p-6 space-y-4 pb-12">
         <div className="flex flex-wrap gap-2">
           {act['Type'] && (
             <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#F3CE5B', color: '#230E77' }}>
@@ -377,26 +469,11 @@ const Card = ({ act, isOpen, onToggle, cardRef }: CardProps) => {
               .join(', ')}
           </p>
         )}
-
-        {/* Expand/Collapse indicator - creates its own space at bottom */}
-        <div className="flex justify-between items-end mt-4">
-          <div 
-            className="px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 hover:bg-gray-200 cursor-pointer"
-            style={{ 
-              color: '#6544E9',
-              backgroundColor: 'rgba(255, 255, 255, 0.95)',
-              border: '1px solid #E5E7EB'
-            }}
-          >
-            {isOpen ? 'Click to hide' : 'Click to expand'}
-          </div>
-          <div></div> {/* Empty div to maintain spacing for feedback button */}
-        </div>
       </div>
 
       {isOpen && (
         <div className="p-4 sm:p-6 bg-gray-50 space-y-6">
-          <FormattedText>{act['Long Description']}</FormattedText>
+          <FormattedText activities={activities} currentActivityId={act.id}>{act['Long Description']}</FormattedText>
           {(whyUrl || demoUrl) && (
             <div className="space-y-6">
               {whyUrl && <Video title="What & Why" src={whyUrl} />}
@@ -422,10 +499,10 @@ const Card = ({ act, isOpen, onToggle, cardRef }: CardProps) => {
                    .replace('Intro', `${act['Display Name'] || act['code name']} Walkthrough`)
                    .replace('Issues', 'Common issues and questions')}
               </h4>
-              <FormattedText>{act[sec]}</FormattedText>
+              <FormattedText activities={activities} currentActivityId={act.id}>{act[sec]}</FormattedText>
             </div>
           ))}
-          <TipsSection content={act['Written Guide - Tips and Tricks']} />
+          <TipsSection content={act['Written Guide - Tips and Tricks']} activities={activities} currentActivityId={act.id} />
         </div>
       )}
     </div>
@@ -561,7 +638,7 @@ export default function Home() {
     <div className="min-h-screen bg-gray-100">
       <div className="container mx-auto px-4 py-6 max-w-6xl">
         <header className="mb-8 text-center">
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-4">
+          <div className="flex justify-center items-center gap-4 mb-4">
             <h1 className="text-3xl sm:text-4xl font-extrabold" style={{ color: '#230E77' }}>
               Refold Activity Library
             </h1>
@@ -726,6 +803,7 @@ export default function Home() {
                     act={a} 
                     isOpen={expandedCards.has(a.id)}
                     onToggle={toggleCard}
+                    activities={activities}
                   />
                 ))}
               </div>
@@ -753,6 +831,7 @@ export default function Home() {
                     act={a} 
                     isOpen={expandedCards.has(a.id)}
                     onToggle={toggleCard}
+                    activities={activities}
                   />
                 ))}
               </div>

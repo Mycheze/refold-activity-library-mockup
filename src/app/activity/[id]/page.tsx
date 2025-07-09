@@ -1,13 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
 import Link from 'next/link';
 import FeedbackButton from '../../../components/FeedbackButton';
 import StarButton from '../../../components/StarButton';
+import ActivityLink from '../../../components/ActivityLink';
 
 interface Activity {
   [key: string]: string;
+}
+
+interface FormattedTextProps {
+  children?: string;
+  activities?: Activity[];
+  currentActivityId?: string;
 }
 
 const GUIDE_SECTIONS = [
@@ -42,30 +49,111 @@ const Video = ({ title, src }: { title: string; src: string }) => (
   </div>
 );
 
-const FormattedText = ({ children }: { children?: string }) => {
+const FormattedText = ({ children, activities = [], currentActivityId }: FormattedTextProps) => {
   if (!children) return null;
+  
+  // Build activity lookup structures
+  const activityMap = new Map<string, Activity>();
+  const sortedActivityNames: string[] = [];
+  
+  if (activities.length > 0) {
+    activities.forEach(activity => {
+      const displayName = activity['Display Name'] || activity['code name'];
+      if (displayName && activity.id !== currentActivityId && displayName.toLowerCase() !== 'other') {
+        activityMap.set(displayName.toLowerCase(), activity);
+        sortedActivityNames.push(displayName);
+      }
+    });
+    
+    // Sort by length (longest first) for proper matching
+    sortedActivityNames.sort((a, b) => b.length - a.length);
+  }
+  
+  const escapeRegex = (str: string) => {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  };
+  
+  const processActivityLinks = (text: string): (string | React.JSX.Element)[] => {
+    if (sortedActivityNames.length === 0) {
+      return [text];
+    }
+    
+    let result: (string | React.JSX.Element)[] = [text];
+    
+    sortedActivityNames.forEach((activityName, index) => {
+      const newResult: (string | React.JSX.Element)[] = [];
+      
+      result.forEach((item) => {
+        if (typeof item === 'string') {
+          const regex = new RegExp(`\\b${escapeRegex(activityName)}\\b`, 'gi');
+          const parts = item.split(regex);
+          const matches = item.match(regex) || [];
+          
+          for (let i = 0; i < parts.length; i++) {
+            if (parts[i]) {
+              newResult.push(parts[i]);
+            }
+            if (i < matches.length) {
+              const activity = activityMap.get(activityName.toLowerCase());
+              if (activity) {
+                newResult.push(
+                  <ActivityLink key={`${activity.id}-${index}-${i}`} activity={activity}>
+                    {matches[i]}
+                  </ActivityLink>
+                );
+              } else {
+                newResult.push(matches[i]);
+              }
+            }
+          }
+        } else {
+          newResult.push(item);
+        }
+      });
+      
+      result = newResult;
+    });
+    
+    return result;
+  };
   
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   
   const formatTextWithLinks = (text: string) => {
-    const parts = text.split(urlRegex);
-    return parts.map((part, index) => {
-      if (urlRegex.test(part)) {
-        return (
-          <a
-            key={index}
-            href={part}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:no-underline transition-all duration-200"
-            style={{ color: '#6544E9' }}
-          >
-            {part}
-          </a>
-        );
+    // First process activity links
+    const withActivityLinks = processActivityLinks(text);
+    
+    // Then process URL links on string parts only
+    const finalResult: (string | React.JSX.Element)[] = [];
+    
+    withActivityLinks.forEach((item, itemIndex) => {
+      if (typeof item === 'string') {
+        const parts = item.split(urlRegex);
+        parts.forEach((part, partIndex) => {
+          if (urlRegex.test(part)) {
+            finalResult.push(
+              <a
+                key={`url-${itemIndex}-${partIndex}`}
+                href={part}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:no-underline transition-all duration-200"
+                style={{ color: '#6544E9' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {part}
+              </a>
+            );
+          } else if (part) {
+            finalResult.push(part);
+          }
+        });
+      } else {
+        finalResult.push(item);
       }
-      return part;
     });
+    
+    return finalResult;
   };
   
   const lines = children.split('\n');
@@ -117,7 +205,11 @@ const FormattedText = ({ children }: { children?: string }) => {
   return <div>{elements}</div>;
 };
 
-const TipsSection = ({ content }: { content?: string }) => {
+const TipsSection = ({ content, activities = [], currentActivityId }: { 
+  content?: string; 
+  activities?: Activity[];
+  currentActivityId?: string;
+}) => {
   const [tipsOpen, setTipsOpen] = useState(false);
   
   const toggleTips = () => {
@@ -142,7 +234,7 @@ const TipsSection = ({ content }: { content?: string }) => {
       </button>
       {tipsOpen && (
         <div className="mt-2 ml-6">
-          <FormattedText>{content}</FormattedText>
+          <FormattedText activities={activities} currentActivityId={currentActivityId}>{content}</FormattedText>
         </div>
       )}
     </div>
@@ -220,6 +312,7 @@ const CopyUrlButton = () => {
 
 export default function ActivityPage({ params }: { params: Promise<{ id: string }> }) {
   const [activity, setActivity] = useState<Activity | null>(null);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [activityId, setActivityId] = useState<string>('');
@@ -254,7 +347,16 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
               return o;
             });
             
-            const foundActivity = cleaned.find(act => act.id === activityId);
+            // Sort activities by ID for consistency
+            const sorted = cleaned.sort((a, b) => {
+              const idA = parseInt(a.id) || 0;
+              const idB = parseInt(b.id) || 0;
+              return idA - idB;
+            });
+            
+            setActivities(sorted);
+            
+            const foundActivity = sorted.find(act => act.id === activityId);
             if (foundActivity) {
               setActivity(foundActivity);
             } else {
@@ -406,7 +508,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
 
           {/* Expanded content */}
           <div className="p-4 sm:p-6 bg-gray-50 space-y-6">
-            <FormattedText>{activity['Long Description']}</FormattedText>
+            <FormattedText activities={activities} currentActivityId={activity.id}>{activity['Long Description']}</FormattedText>
             {(whyUrl || demoUrl) && (
               <div className="space-y-6">
                 {whyUrl && <Video title="What & Why" src={whyUrl} />}
@@ -432,10 +534,10 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
                      .replace('Intro', `${activity['Display Name'] || activity['code name']} Walkthrough`)
                      .replace('Issues', 'Common issues and questions')}
                 </h4>
-                <FormattedText>{activity[sec]}</FormattedText>
+                <FormattedText activities={activities} currentActivityId={activity.id}>{activity[sec]}</FormattedText>
               </div>
             ))}
-            <TipsSection content={activity['Written Guide - Tips and Tricks']} />
+            <TipsSection content={activity['Written Guide - Tips and Tricks']} activities={activities} currentActivityId={activity.id} />
           </div>
         </div>
       </div>
