@@ -7,14 +7,14 @@ import FeedbackButton from '../../../components/FeedbackButton';
 import StarButton from '../../../components/StarButton';
 import ActivityLink from '../../../components/ActivityLink';
 
-interface Activity {
+interface Tool {
   [key: string]: string;
 }
 
 interface FormattedTextProps {
   children?: string;
-  activities?: Activity[];
-  currentActivityId?: string;
+  tools?: Tool[];
+  currentToolId?: string;
 }
 
 const GUIDE_SECTIONS = [
@@ -49,43 +49,43 @@ const Video = ({ title, src }: { title: string; src: string }) => (
   </div>
 );
 
-const FormattedText = ({ children, activities = [], currentActivityId }: FormattedTextProps) => {
+const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextProps) => {
   if (!children) return null;
   
-  // Build activity lookup structures
-  const activityMap = new Map<string, Activity>();
-  const sortedActivityNames: string[] = [];
+  // Build tool lookup structures
+  const toolMap = new Map<string, Tool>();
+  const sortedToolNames: string[] = [];
   
-  if (activities.length > 0) {
-    activities.forEach(activity => {
-      const displayName = activity['Display Name'] || activity['code name'];
-      if (displayName && activity.id !== currentActivityId && displayName.toLowerCase() !== 'other') {
-        activityMap.set(displayName.toLowerCase(), activity);
-        sortedActivityNames.push(displayName);
+  if (tools.length > 0) {
+    tools.forEach(tool => {
+      const displayName = tool['Display Name'] || tool['code name'];
+      if (displayName && tool.id !== currentToolId && displayName.toLowerCase() !== 'other') {
+        toolMap.set(displayName.toLowerCase(), tool);
+        sortedToolNames.push(displayName);
       }
     });
     
     // Sort by length (longest first) for proper matching
-    sortedActivityNames.sort((a, b) => b.length - a.length);
+    sortedToolNames.sort((a, b) => b.length - a.length);
   }
   
   const escapeRegex = (str: string) => {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   };
   
-  const processActivityLinks = (text: string): (string | React.JSX.Element)[] => {
-    if (sortedActivityNames.length === 0) {
+  const processToolLinks = (text: string): (string | React.JSX.Element)[] => {
+    if (sortedToolNames.length === 0) {
       return [text];
     }
     
     let result: (string | React.JSX.Element)[] = [text];
     
-    sortedActivityNames.forEach((activityName, index) => {
+    sortedToolNames.forEach((toolName, index) => {
       const newResult: (string | React.JSX.Element)[] = [];
       
       result.forEach((item) => {
         if (typeof item === 'string') {
-          const regex = new RegExp(`\\b${escapeRegex(activityName)}\\b`, 'gi');
+          const regex = new RegExp(`\\b${escapeRegex(toolName)}\\b`, 'gi');
           const parts = item.split(regex);
           const matches = item.match(regex) || [];
           
@@ -94,10 +94,10 @@ const FormattedText = ({ children, activities = [], currentActivityId }: Formatt
               newResult.push(parts[i]);
             }
             if (i < matches.length) {
-              const activity = activityMap.get(activityName.toLowerCase());
-              if (activity) {
+              const tool = toolMap.get(toolName.toLowerCase());
+              if (tool) {
                 newResult.push(
-                  <ActivityLink key={`${activity.id}-${index}-${i}`} activity={activity}>
+                  <ActivityLink key={`${tool.id}-${index}-${i}`} activity={tool}>
                     {matches[i]}
                   </ActivityLink>
                 );
@@ -120,13 +120,13 @@ const FormattedText = ({ children, activities = [], currentActivityId }: Formatt
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   
   const formatTextWithLinks = (text: string) => {
-    // First process activity links
-    const withActivityLinks = processActivityLinks(text);
+    // First process tool links
+    const withToolLinks = processToolLinks(text);
     
     // Then process URL links on string parts only
     const finalResult: (string | React.JSX.Element)[] = [];
     
-    withActivityLinks.forEach((item, itemIndex) => {
+    withToolLinks.forEach((item, itemIndex) => {
       if (typeof item === 'string') {
         const parts = item.split(urlRegex);
         parts.forEach((part, partIndex) => {
@@ -138,7 +138,7 @@ const FormattedText = ({ children, activities = [], currentActivityId }: Formatt
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline hover:no-underline transition-all duration-200"
-                style={{ color: '#6544E9' }}
+                style={{ color: '#F97316' }}
                 onClick={(e) => e.stopPropagation()}
               >
                 {part}
@@ -205,10 +205,10 @@ const FormattedText = ({ children, activities = [], currentActivityId }: Formatt
   return <div>{elements}</div>;
 };
 
-const TipsSection = ({ content, activities = [], currentActivityId }: { 
+const TipsSection = ({ content, tools = [], currentToolId }: { 
   content?: string; 
-  activities?: Activity[];
-  currentActivityId?: string;
+  tools?: Tool[];
+  currentToolId?: string;
 }) => {
   const [tipsOpen, setTipsOpen] = useState(false);
   
@@ -223,18 +223,18 @@ const TipsSection = ({ content, activities = [], currentActivityId }: {
       <button 
         className="w-full text-left rounded-lg p-3 transition-colors duration-200 focus:outline-none focus:ring-2 bg-gray-100 hover:bg-gray-200"
         style={{ 
-          border: `2px solid #6544E9`
+          border: `2px solid #F97316`
         }}
         onClick={toggleTips}
       >
-        <h4 className="font-extrabold flex items-center gap-2" style={{ color: '#6544E9' }}>
+        <h4 className="font-extrabold flex items-center gap-2" style={{ color: '#F97316' }}>
           <span className={`transform transition-transform ${tipsOpen ? 'rotate-90' : ''}`}>▶</span>
           Tips and Tricks 🎯🧠
         </h4>
       </button>
       {tipsOpen && (
         <div className="mt-2 ml-6">
-          <FormattedText activities={activities} currentActivityId={currentActivityId}>{content}</FormattedText>
+          <FormattedText tools={tools} currentToolId={currentToolId}>{content}</FormattedText>
         </div>
       )}
     </div>
@@ -255,11 +255,11 @@ const DemoSection = ({ demoUrl }: { demoUrl?: string }) => {
       <button 
         className="w-full text-left rounded-lg p-3 transition-colors duration-200 focus:outline-none focus:ring-2 bg-gray-100 hover:bg-gray-200"
         style={{ 
-          border: `2px solid #6544E9`
+          border: `2px solid #F97316`
         }}
         onClick={toggleDemo}
       >
-        <h4 className="font-extrabold flex items-center gap-2" style={{ color: '#6544E9' }}>
+        <h4 className="font-extrabold flex items-center gap-2" style={{ color: '#F97316' }}>
           <span className={`transform transition-transform ${demoOpen ? 'rotate-90' : ''}`}>▶</span>
           Demonstration video 🎥
         </h4>
@@ -291,8 +291,8 @@ const CopyUrlButton = () => {
       onClick={copyUrl}
       className="px-4 py-2 text-sm border rounded-lg hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 bg-white flex items-center gap-2"
       style={{ 
-        color: copied ? '#10B981' : '#6544E9',
-        borderColor: copied ? '#10B981' : '#6544E9'
+        color: copied ? '#10B981' : '#F97316',
+        borderColor: copied ? '#10B981' : '#F97316'
       }}
     >
       {copied ? (
@@ -310,25 +310,25 @@ const CopyUrlButton = () => {
   );
 };
 
-export default function ActivityPage({ params }: { params: Promise<{ id: string }> }) {
-  const [activity, setActivity] = useState<Activity | null>(null);
-  const [activities, setActivities] = useState<Activity[]>([]);
+export default function ToolPage({ params }: { params: Promise<{ id: string }> }) {
+  const [tool, setTool] = useState<Tool | null>(null);
+  const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [activityId, setActivityId] = useState<string>('');
+  const [toolId, setToolId] = useState<string>('');
 
   useEffect(() => {
     const getParams = async () => {
       const resolvedParams = await params;
-      setActivityId(resolvedParams.id);
+      setToolId(resolvedParams.id);
     };
     getParams();
   }, [params]);
 
   useEffect(() => {
-    if (!activityId) return;
+    if (!toolId) return;
     
-    const loadActivity = async () => {
+    const loadTool = async () => {
       try {
         const response = await fetch('/data/export_activity_library.tsv');
         const text = await response.text();
@@ -339,28 +339,28 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
           skipEmptyLines: false,
           complete: (res) => {
             const cleaned = (res.data as Record<string, unknown>[]).map((r) => {
-              const o: Activity = {};
+              const o: Tool = {};
               Object.entries(r).forEach(([k, v]) => {
                 o[k] = typeof v === 'string' ? v.replace(/\r/g, '').replace(/⏎/g, '\n').trim() : v as string;
               });
               return o;
             });
             
-            // Filter to only show activities (not tools)
-            const activitiesOnly = cleaned.filter(item => item.Library === 'Activities');
+            // Filter to only show tools (not activities)
+            const toolsOnly = cleaned.filter(item => item.Library === 'Tools');
             
-            // Sort activities by ID for consistency
-            const sorted = activitiesOnly.sort((a, b) => {
+            // Sort tools by ID for consistency
+            const sorted = toolsOnly.sort((a, b) => {
               const idA = parseInt(a.id) || 0;
               const idB = parseInt(b.id) || 0;
               return idA - idB;
             });
             
-            setActivities(sorted);
+            setTools(sorted);
             
-            const foundActivity = sorted.find(act => act.id === activityId);
-            if (foundActivity) {
-              setActivity(foundActivity);
+            const foundTool = sorted.find(t => t.id === toolId);
+            if (foundTool) {
+              setTool(foundTool);
             } else {
               setNotFound(true);
             }
@@ -368,46 +368,46 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
           }
         });
       } catch (error) {
-        console.error('Error loading activity:', error);
+        console.error('Error loading tool:', error);
         setNotFound(true);
         setLoading(false);
       }
     };
     
-    loadActivity();
-  }, [activityId]);
+    loadTool();
+  }, [toolId]);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: '#6544E9' }}></div>
-          <p className="text-gray-600">Loading activity...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: '#F97316' }}></div>
+          <p className="text-gray-600">Loading tool...</p>
         </div>
       </div>
     );
   }
 
-  if (notFound || !activity) {
+  if (notFound || !tool) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-extrabold mb-4" style={{ color: '#230E77' }}>Activity Not Found</h1>
-          <p className="text-gray-600 mb-6">The activity with ID &quot;{activityId}&quot; could not be found.</p>
+          <h1 className="text-2xl font-extrabold mb-4" style={{ color: '#230E77' }}>Tool Not Found</h1>
+          <p className="text-gray-600 mb-6">The tool with ID &quot;{toolId}&quot; could not be found.</p>
           <Link 
-            href="/" 
+            href="/tools" 
             className="px-4 py-2 rounded-lg transition-colors duration-200"
-            style={{ backgroundColor: '#6544E9', color: '#FFFFFE' }}
+            style={{ backgroundColor: '#F97316', color: '#FFFFFE' }}
           >
-            ← Back to Activity Library
+            ← Back to Tool Library
           </Link>
         </div>
       </div>
     );
   }
 
-  const whyUrl = getEmbedUrl(activity['Video What and why']);
-  const demoUrl = getEmbedUrl(activity['Video Demo']);
+  const whyUrl = getEmbedUrl(tool['Video What and why']);
+  const demoUrl = getEmbedUrl(tool['Video Demo']);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -415,24 +415,24 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
         {/* Header with navigation */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <Link 
-            href="/" 
+            href="/tools" 
             className="text-sm flex items-center gap-2 hover:underline"
-            style={{ color: '#6544E9' }}
+            style={{ color: '#F97316' }}
           >
-            ← Back to Activity Library
+            ← Back to Tool Library
           </Link>
           <CopyUrlButton />
         </div>
 
-        {/* Activity Card */}
+        {/* Tool Card */}
         <div className="bg-white rounded-xl shadow-lg relative">
           {/* Top right buttons */}
           <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
-            <StarButton activityId={activity.id} size="medium" />
+            <StarButton activityId={tool.id} size="medium" />
             <FeedbackButton 
               type="activity" 
-              activityId={activity.id} 
-              activityName={activity['Display Name'] || activity['code name']}
+              activityId={tool.id} 
+              activityName={tool['Display Name'] || tool['code name']}
               size="medium"
               className="bg-white shadow-sm border border-gray-200"
             />
@@ -440,106 +440,100 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
 
           <header className="p-4 sm:p-6 border-b space-y-2 pr-20" style={{ borderColor: '#D1D5DB' }}>
             <h1 className="text-2xl sm:text-3xl font-extrabold break-words" style={{ color: '#230E77' }}>
-              {activity['Display Name'] || activity['code name']}
+              {tool['Display Name'] || tool['code name']}
             </h1>
             <pre className="text-sm whitespace-pre-wrap break-words text-gray-700">
-              {activity['Short Description']}
+              {tool['Short Description']}
             </pre>
             <p className="text-xs font-roboto text-gray-400">
-              ID: {activity['id']} &middot; Code: {activity['code name']}
+              ID: {tool['id']} &middot; Code: {tool['code name']}
             </p>
           </header>
 
           <div className="p-4 sm:p-6 space-y-4">
             <div className="flex flex-wrap gap-2">
-              {activity['Type'] && (
-                <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#F3CE5B', color: '#230E77' }}>
-                  {activity['Type']}
+              {tool['Type'] && (
+                <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#FB923C', color: '#FFFFFE' }}>
+                  {tool['Type']}
                 </span>
               )}
-              {activity['Pillar'] && (
-                <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#6544E9', color: '#FFFFFE' }}>
-                  {activity['Pillar']}
+              {tool['Platform'] && (
+                <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#F97316', color: '#FFFFFE' }}>
+                  {tool['Platform']}
                 </span>
               )}
-              {activity['Refold Phase(s)'] && activity['Refold Phase(s)'].split(/;+/).map((p, i) => (
-                <span key={i} className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#BFB2F6', color: '#230E77' }}>
-                  Phase {p.trim()}
+              {tool['Pricing'] && (
+                <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#FDBA74', color: '#230E77' }}>
+                  {tool['Pricing']}
                 </span>
-              ))}
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-4 text-sm text-gray-600">
-              {activity['Parent Skills'] && (
+              {tool['Languages'] && (
                 <div className="break-words">
-                  <strong>Parent Skills:</strong> {activity['Parent Skills']}
+                  <strong>Languages:</strong> {tool['Languages']}
                 </div>
               )}
-              {activity['Child Techniques'] && activity['Child Techniques'] !== '#N/A' && (
+              {tool['Parent Skills'] && (
                 <div className="break-words">
-                  <strong>Child Techniques:</strong> {activity['Child Techniques']}
+                  <strong>Skills:</strong> {tool['Parent Skills']}
                 </div>
               )}
-              {activity['Parent Categories'] && (
+              {tool['Alternatives'] && (
                 <div className="break-words">
-                  <strong>Parent Categories:</strong> {activity['Parent Categories'].split(/;+/).map(cat => cat.trim()).filter(Boolean).join(', ')}
+                  <strong>Alternatives:</strong> <FormattedText tools={tools} currentToolId={tool.id}>{tool['Alternatives']}</FormattedText>
                 </div>
               )}
-              {activity['Alternatives'] && (
+              {tool['Tools'] && (
                 <div className="break-words">
-                  <strong>Alternatives:</strong> {activity['Alternatives']}
-                </div>
-              )}
-              {activity['Sub-techniques'] && (
-                <div className="break-words">
-                  <strong>Sub-techniques:</strong> {activity['Sub-techniques']}
+                  <strong>Website:</strong> 
+                  <a 
+                    href={tool['Tools']} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="ml-2 underline hover:no-underline"
+                    style={{ color: '#F97316' }}
+                  >
+                    {tool['Tools']}
+                  </a>
                 </div>
               )}
             </div>
-
-            {activity['Aliases'] && (
-              <p className="italic text-sm break-words font-roboto text-gray-600">
-                {activity['Aliases']
-                  .split(/\r?\n|; ?/)
-                  .map(a => a.trim().replace(/^[-–—]\s*/, ''))
-                  .filter(Boolean)
-                  .join(', ')}
-              </p>
-            )}
           </div>
 
           {/* Expanded content */}
           <div className="p-4 sm:p-6 bg-gray-50 space-y-6">
-            <FormattedText activities={activities} currentActivityId={activity.id}>{activity['Long Description']}</FormattedText>
+            <FormattedText tools={tools} currentToolId={tool.id}>{tool['Long Description']}</FormattedText>
             {(whyUrl || demoUrl) && (
               <div className="space-y-6">
                 {whyUrl && <Video title="What & Why" src={whyUrl} />}
                 <DemoSection demoUrl={demoUrl || undefined} />
               </div>
             )}
-            {activity['Benefits'] && (
+            {tool['Benefits'] && (
               <div>
                 <strong style={{ color: '#230E77' }}>Benefits:</strong>
                 <ul className="list-disc list-inside mt-1 text-gray-700">
-                  {activity['Benefits'].split(/;+/).map((b, i) => (
+                  {tool['Benefits'].split(/;+/).map((b, i) => (
                     <li key={i}>{b.trim()}</li>
                   ))}
                 </ul>
                 <hr className="mt-6 border-gray-300" />
               </div>
             )}
-            {GUIDE_SECTIONS.map(sec => activity[sec] && (
+            {GUIDE_SECTIONS.map(sec => tool[sec] && (
               <div key={sec}>
                 <h4 className="font-extrabold" style={{ color: '#230E77' }}>
                   {sec.replace('Written Guide - ','')
                      .replace('Health Routine', 'How this fits into a healthy learning routine')
-                     .replace('Intro', `${activity['Display Name'] || activity['code name']} Walkthrough`)
+                     .replace('Intro', `${tool['Display Name'] || tool['code name']} Walkthrough`)
                      .replace('Issues', 'Common issues and questions')}
                 </h4>
-                <FormattedText activities={activities} currentActivityId={activity.id}>{activity[sec]}</FormattedText>
+                <FormattedText tools={tools} currentToolId={tool.id}>{tool[sec]}</FormattedText>
               </div>
             ))}
-            <TipsSection content={activity['Written Guide - Tips and Tricks']} activities={activities} currentActivityId={activity.id} />
+            <TipsSection content={tool['Written Guide - Tips and Tricks']} tools={tools} currentToolId={tool.id} />
           </div>
         </div>
       </div>

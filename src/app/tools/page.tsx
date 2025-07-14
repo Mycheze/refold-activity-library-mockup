@@ -2,24 +2,24 @@
 
 import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
-import FeedbackButton from '../components/FeedbackButton';
-import IntroModal from '../components/IntroModal';
-import ActivityLink from '../components/ActivityLink';
-import { useStarredActivities } from '../contexts/StarredContext';
+import FeedbackButton from '../../components/FeedbackButton';
+import IntroModal from '../../components/IntroModal';
+import ActivityLink from '../../components/ActivityLink';
+import { useStarredActivities } from '../../contexts/StarredContext';
 
-interface Activity {
+interface Tool {
   [key: string]: string;
 }
 
 interface FormattedTextProps {
   children?: string;
-  activities?: Activity[];
-  currentActivityId?: string;
+  tools?: Tool[];
+  currentToolId?: string;
 }
 
 const GUIDE_SECTIONS = [
   'Written Guide - Intro',
-  'Written Guide - Health Routine',
+  'Written Guide - Target Audience',
   'Written Guide - Issues',
   'Written Guide - Setup',
   'Written Guide - Walkthrough'
@@ -49,43 +49,43 @@ const Video = ({ title, src }: { title: string; src: string }) => (
   </div>
 );
 
-const FormattedText = ({ children, activities = [], currentActivityId }: FormattedTextProps) => {
+const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextProps) => {
   if (!children) return null;
   
-  // Build activity lookup structures
-  const activityMap = new Map<string, Activity>();
-  const sortedActivityNames: string[] = [];
+  // Build tool lookup structures
+  const toolMap = new Map<string, Tool>();
+  const sortedToolNames: string[] = [];
   
-  if (activities.length > 0) {
-    activities.forEach(activity => {
-      const displayName = activity['Display Name'] || activity['code name'];
-      if (displayName && activity.id !== currentActivityId && displayName.toLowerCase() !== 'other') {
-        activityMap.set(displayName.toLowerCase(), activity);
-        sortedActivityNames.push(displayName);
+  if (tools.length > 0) {
+    tools.forEach(tool => {
+      const displayName = tool['Display Name'] || tool['code name'];
+      if (displayName && tool.id !== currentToolId && displayName.toLowerCase() !== 'other') {
+        toolMap.set(displayName.toLowerCase(), tool);
+        sortedToolNames.push(displayName);
       }
     });
     
     // Sort by length (longest first) for proper matching
-    sortedActivityNames.sort((a, b) => b.length - a.length);
+    sortedToolNames.sort((a, b) => b.length - a.length);
   }
   
   const escapeRegex = (str: string) => {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   };
   
-  const processActivityLinks = (text: string): (string | React.JSX.Element)[] => {
-    if (sortedActivityNames.length === 0) {
+  const processToolLinks = (text: string): (string | React.JSX.Element)[] => {
+    if (sortedToolNames.length === 0) {
       return [text];
     }
     
     let result: (string | React.JSX.Element)[] = [text];
     
-    sortedActivityNames.forEach((activityName, index) => {
+    sortedToolNames.forEach((toolName, index) => {
       const newResult: (string | React.JSX.Element)[] = [];
       
       result.forEach((item) => {
         if (typeof item === 'string') {
-          const regex = new RegExp(`\\b${escapeRegex(activityName)}\\b`, 'gi');
+          const regex = new RegExp(`\\b${escapeRegex(toolName)}\\b`, 'gi');
           const parts = item.split(regex);
           const matches = item.match(regex) || [];
           
@@ -94,10 +94,10 @@ const FormattedText = ({ children, activities = [], currentActivityId }: Formatt
               newResult.push(parts[i]);
             }
             if (i < matches.length) {
-              const activity = activityMap.get(activityName.toLowerCase());
-              if (activity) {
+              const tool = toolMap.get(toolName.toLowerCase());
+              if (tool) {
                 newResult.push(
-                  <ActivityLink key={`${activity.id}-${index}-${i}`} activity={activity}>
+                  <ActivityLink key={`${tool.id}-${index}-${i}`} activity={tool}>
                     {matches[i]}
                   </ActivityLink>
                 );
@@ -120,13 +120,13 @@ const FormattedText = ({ children, activities = [], currentActivityId }: Formatt
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   
   const formatTextWithLinks = (text: string) => {
-    // First process activity links
-    const withActivityLinks = processActivityLinks(text);
+    // First process tool links
+    const withToolLinks = processToolLinks(text);
     
     // Then process URL links on string parts only
     const finalResult: (string | React.JSX.Element)[] = [];
     
-    withActivityLinks.forEach((item, itemIndex) => {
+    withToolLinks.forEach((item, itemIndex) => {
       if (typeof item === 'string') {
         const parts = item.split(urlRegex);
         parts.forEach((part, partIndex) => {
@@ -138,7 +138,7 @@ const FormattedText = ({ children, activities = [], currentActivityId }: Formatt
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline hover:no-underline transition-all duration-200"
-                style={{ color: '#6544E9' }}
+                style={{ color: '#F97316' }}
                 onClick={(e) => e.stopPropagation()}
               >
                 {part}
@@ -205,10 +205,10 @@ const FormattedText = ({ children, activities = [], currentActivityId }: Formatt
   return <div>{elements}</div>;
 };
 
-const TipsSection = ({ content, activities = [], currentActivityId }: { 
+const TipsSection = ({ content, tools = [], currentToolId }: { 
   content?: string; 
-  activities?: Activity[];
-  currentActivityId?: string;
+  tools?: Tool[];
+  currentToolId?: string;
 }) => {
   const [tipsOpen, setTipsOpen] = useState(false);
   
@@ -224,18 +224,18 @@ const TipsSection = ({ content, activities = [], currentActivityId }: {
       <button 
         className="w-full text-left rounded-lg p-3 transition-colors duration-200 focus:outline-none focus:ring-2 bg-gray-100 hover:bg-gray-200"
         style={{ 
-          border: `2px solid #6544E9`
+          border: `2px solid #F97316`
         }}
         onClick={toggleTips}
       >
-        <h4 className="font-extrabold flex items-center gap-2" style={{ color: '#6544E9' }}>
+        <h4 className="font-extrabold flex items-center gap-2" style={{ color: '#F97316' }}>
           <span className={`transform transition-transform ${tipsOpen ? 'rotate-90' : ''}`}>▶</span>
           Tips and Tricks 🎯🧠
         </h4>
       </button>
       {tipsOpen && (
         <div className="mt-2 ml-6">
-          <FormattedText activities={activities} currentActivityId={currentActivityId}>{content}</FormattedText>
+          <FormattedText tools={tools} currentToolId={currentToolId}>{content}</FormattedText>
         </div>
       )}
     </div>
@@ -257,11 +257,11 @@ const DemoSection = ({ demoUrl }: { demoUrl?: string }) => {
       <button 
         className="w-full text-left rounded-lg p-3 transition-colors duration-200 focus:outline-none focus:ring-2 bg-gray-100 hover:bg-gray-200"
         style={{ 
-          border: `2px solid #6544E9`
+          border: `2px solid #F97316`
         }}
         onClick={toggleDemo}
       >
-        <h4 className="font-extrabold flex items-center gap-2" style={{ color: '#6544E9' }}>
+        <h4 className="font-extrabold flex items-center gap-2" style={{ color: '#F97316' }}>
           <span className={`transform transition-transform ${demoOpen ? 'rotate-90' : ''}`}>▶</span>
           Demonstration video 🎥
         </h4>
@@ -276,14 +276,14 @@ const DemoSection = ({ demoUrl }: { demoUrl?: string }) => {
 };
 
 interface CardProps {
-  act: Activity;
+  tool: Tool;
   isOpen: boolean;
-  onToggle: (activityId: string) => void;
+  onToggle: (toolId: string) => void;
   cardRef?: (el: HTMLDivElement | null) => void;
-  activities: Activity[];
+  tools: Tool[];
 }
 
-const Card = ({ act, isOpen, onToggle, cardRef, activities }: CardProps) => {
+const Card = ({ tool, isOpen, onToggle, cardRef, tools }: CardProps) => {
   const { isStarred, toggleStar } = useStarredActivities();
 
   const handleCardClick = (e: React.MouseEvent) => {
@@ -292,36 +292,36 @@ const Card = ({ act, isOpen, onToggle, cardRef, activities }: CardProps) => {
         (e.target as HTMLElement).closest('button')) {
       return;
     }
-    onToggle(act.id);
+    onToggle(tool.id);
   };
 
   const handleMiddleClick = (e: React.MouseEvent) => {
     if (e.button === 1) { // Middle mouse button
       e.preventDefault();
-      window.open(`/activity/${act.id}`, '_blank');
+      window.open(`/tool/${tool.id}`, '_blank');
     }
   };
 
   const handleExternalLinkClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.open(`/activity/${act.id}`, '_blank');
+    window.open(`/tool/${tool.id}`, '_blank');
   };
 
   const handleStarClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     
     // If this card is currently open and we're starring it, we'll need to follow it
-    const wasStarred = isStarred(act.id);
+    const wasStarred = isStarred(tool.id);
     const willBeStarred = !wasStarred;
     
     // Toggle the star
-    toggleStar(act.id);
+    toggleStar(tool.id);
     
     // If card is open and moving to starred section, we'll scroll to it after re-render
     if (isOpen && willBeStarred) {
       // Use a short timeout to allow React to re-render the moved card
       setTimeout(() => {
-        const starredCard = document.querySelector(`[data-activity-id="${act.id}"]`);
+        const starredCard = document.querySelector(`[data-tool-id="${tool.id}"]`);
         if (starredCard) {
           starredCard.scrollIntoView({ 
             behavior: 'smooth', 
@@ -332,13 +332,13 @@ const Card = ({ act, isOpen, onToggle, cardRef, activities }: CardProps) => {
     }
   };
   
-  const whyUrl = getEmbedUrl(act['Video What and why']);
-  const demoUrl = getEmbedUrl(act['Video Demo']);
+  const whyUrl = getEmbedUrl(tool['Video What and why']);
+  const demoUrl = getEmbedUrl(tool['Video Demo']);
 
   return (
     <div 
       ref={cardRef}
-      data-activity-id={act.id}
+      data-tool-id={tool.id}
       onClick={handleCardClick}
       onMouseDown={handleMiddleClick}
       className="cursor-pointer rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300 relative"
@@ -350,15 +350,15 @@ const Card = ({ act, isOpen, onToggle, cardRef, activities }: CardProps) => {
           onClick={handleStarClick}
           className="p-1.5 rounded-lg transition-all duration-200 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-300"
           style={{ 
-            color: isStarred(act.id) ? '#F59E0B' : '#9CA3AF'
+            color: isStarred(tool.id) ? '#F59E0B' : '#9CA3AF'
           }}
-          title={isStarred(act.id) ? 'Remove from starred' : 'Add to starred'}
+          title={isStarred(tool.id) ? 'Remove from starred' : 'Add to starred'}
         >
           <svg 
             width="16" 
             height="16" 
             viewBox="0 0 24 24" 
-            fill={isStarred(act.id) ? 'currentColor' : 'none'}
+            fill={isStarred(tool.id) ? 'currentColor' : 'none'}
             stroke="currentColor" 
             strokeWidth="2" 
             strokeLinecap="round" 
@@ -371,7 +371,7 @@ const Card = ({ act, isOpen, onToggle, cardRef, activities }: CardProps) => {
           onClick={handleExternalLinkClick}
           className="external-link-icon p-2 rounded-lg transition-colors duration-200 hover:bg-gray-100 focus:outline-none focus:ring-2"
           style={{ 
-            color: '#6544E9'
+            color: '#F97316'
           }}
           title="Open in new tab"
         >
@@ -392,133 +392,118 @@ const Card = ({ act, isOpen, onToggle, cardRef, activities }: CardProps) => {
         </button>
       </div>
 
-      {/* Activity feedback button */}
+      {/* Tool feedback button */}
       <div className="absolute bottom-3 right-3 z-10">
         <FeedbackButton 
           type="activity" 
-          activityId={act.id} 
-          activityName={act['Display Name'] || act['code name']}
+          activityId={tool.id} 
+          activityName={tool['Display Name'] || tool['code name']}
         />
       </div>
 
       <header className="p-4 sm:p-6 border-b space-y-2" style={{ borderColor: '#D1D5DB' }}>
         <h2 className="text-xl sm:text-2xl font-extrabold break-words pr-8" style={{ color: '#230E77' }}>
-          {act['Display Name'] || act['code name']}
+          {tool['Display Name'] || tool['code name']}
         </h2>
         <pre className="text-sm whitespace-pre-wrap break-words text-gray-700">
-          {act['Short Description']}
+          {tool['Short Description']}
         </pre>
         <p className="text-xs font-roboto text-gray-400">
-          ID: {act['id']} &middot; Code: {act['code name']}
+          ID: {tool['id']} &middot; Code: {tool['code name']}
         </p>
       </header>
 
       <div className="p-4 sm:p-6 space-y-4 pb-12">
         <div className="flex flex-wrap gap-2">
-          {act['Type'] && (
-            <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#F3CE5B', color: '#230E77' }}>
-              {act['Type']}
+          {tool['Type'] && (
+            <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#FB923C', color: '#FFFFFE' }}>
+              {tool['Type']}
             </span>
           )}
-          {act['Pillar'] && (
-            <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#6544E9', color: '#FFFFFE' }}>
-              {act['Pillar']}
+          {tool['Platform'] && (
+            <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#F97316', color: '#FFFFFE' }}>
+              {tool['Platform']}
             </span>
           )}
-          {act['Refold Phase(s)'] && act['Refold Phase(s)'].split(/;+/).map((p, i) => (
-            <span key={i} className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#BFB2F6', color: '#230E77' }}>
-              Phase {p.trim()}
+          {tool['Pricing'] && (
+            <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#FDBA74', color: '#230E77' }}>
+              {tool['Pricing']}
             </span>
-          ))}
+          )}
+          {tool['Technical Rating'] && (
+            <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#FED7AA', color: '#230E77' }}>
+              {tool['Technical Rating']}
+            </span>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-4 text-sm text-gray-600">
-          {act['Parent Skills'] && (
+          {tool['Languages'] && (
             <div className="break-words">
-              <strong>Parent Skills:</strong> {act['Parent Skills']}
+              <strong>Languages:</strong> {tool['Languages']}
             </div>
           )}
-          {act['Child Techniques'] && act['Child Techniques'] !== '#N/A' && (
+          {tool['Parent Skills'] && (
             <div className="break-words">
-              <strong>Child Techniques:</strong> {act['Child Techniques']}
+              <strong>Skills:</strong> {tool['Parent Skills']}
             </div>
           )}
-          {act['Parent Categories'] && (
+          {tool['Alternatives'] && (
             <div className="break-words">
-              <strong>Parent Categories:</strong> {act['Parent Categories'].split(/;+/).map(cat => cat.trim()).filter(Boolean).join(', ')}
-            </div>
-          )}
-          {act['Alternatives'] && (
-            <div className="break-words">
-              <strong>Alternatives:</strong> {act['Alternatives']}
-            </div>
-          )}
-          {act['Sub-techniques'] && (
-            <div className="break-words">
-              <strong>Sub-techniques:</strong> {act['Sub-techniques']}
+              <strong>Alternatives:</strong> <FormattedText tools={tools} currentToolId={tool.id}>{tool['Alternatives']}</FormattedText>
             </div>
           )}
         </div>
-
-        {act['Aliases'] && (
-          <p className="italic text-sm break-words font-roboto text-gray-600">
-            {act['Aliases']
-              .split(/\r?\n|; ?/)
-              .map(a => a.trim().replace(/^[-–—]\s*/, ''))
-              .filter(Boolean)
-              .join(', ')}
-          </p>
-        )}
       </div>
 
       {isOpen && (
         <div className="p-4 sm:p-6 bg-gray-50 space-y-6">
-          <FormattedText activities={activities} currentActivityId={act.id}>{act['Long Description']}</FormattedText>
+          <FormattedText tools={tools} currentToolId={tool.id}>{tool['Long Description']}</FormattedText>
           {(whyUrl || demoUrl) && (
             <div className="space-y-6">
               {whyUrl && <Video title="What & Why" src={whyUrl} />}
               <DemoSection demoUrl={demoUrl || undefined} />
             </div>
           )}
-          {act['Benefits'] && (
+          {tool['Benefits'] && (
             <div>
               <strong style={{ color: '#230E77' }}>Benefits:</strong>
               <ul className="list-disc list-inside mt-1 text-gray-700">
-                {act['Benefits'].split(/;+/).map((b, i) => (
+                {tool['Benefits'].split(/;+/).map((b, i) => (
                   <li key={i}>{b.trim()}</li>
                 ))}
               </ul>
               <hr className="mt-6 border-gray-300" />
             </div>
           )}
-          {GUIDE_SECTIONS.map(sec => act[sec] && (
+          {GUIDE_SECTIONS.map(sec => tool[sec] && (
             <div key={sec}>
               <h4 className="font-extrabold" style={{ color: '#230E77' }}>
                 {sec.replace('Written Guide - ','')
-                   .replace('Health Routine', 'How this fits into a healthy learning routine')
-                   .replace('Intro', `${act['Display Name'] || act['code name']} Walkthrough`)
+                   .replace('Target Audience', 'Who this tool is for')
+                   .replace('Intro', `${tool['Display Name'] || tool['code name']} Overview`)
                    .replace('Issues', 'Common issues and questions')}
               </h4>
-              <FormattedText activities={activities} currentActivityId={act.id}>{act[sec]}</FormattedText>
+              <FormattedText tools={tools} currentToolId={tool.id}>{tool[sec]}</FormattedText>
             </div>
           ))}
-          <TipsSection content={act['Written Guide - Tips and Tricks']} activities={activities} currentActivityId={act.id} />
+          <TipsSection content={tool['Written Guide - Tips and Tricks']} tools={tools} currentToolId={tool.id} />
         </div>
       )}
     </div>
   );
 };
 
-export default function Home() {
-  const [activities, setActivities] = useState<Activity[]>([]);
+export default function ToolsPage() {
+  const [tools, setTools] = useState<Tool[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState({
-    pillar: '',
-    phase: '',
-    parentSkill: ''
+    platform: [] as string[],
+    pricing: '',
+    technicalRating: ''
   });
 
   const { starredIds, isLoaded: starredLoaded } = useStarredActivities();
@@ -540,13 +525,13 @@ export default function Home() {
     });
   };
 
-  const toggleCard = (activityId: string) => {
+  const toggleCard = (toolId: string) => {
     setExpandedCards(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(activityId)) {
-        newSet.delete(activityId);
+      if (newSet.has(toolId)) {
+        newSet.delete(toolId);
       } else {
-        newSet.add(activityId);
+        newSet.add(toolId);
       }
       return newSet;
     });
@@ -564,24 +549,24 @@ export default function Home() {
           skipEmptyLines: false,
           complete: (res) => {
             const cleaned = (res.data as Record<string, unknown>[]).map((r) => {
-              const o: Activity = {};
+              const o: Tool = {};
               Object.entries(r).forEach(([k, v]) => {
                 o[k] = typeof v === 'string' ? v.replace(/\r/g, '').replace(/⏎/g, '\n').trim() : v as string;
               });
               return o;
             });
             
-            // Filter to only show activities (not tools)
-            const activitiesOnly = cleaned.filter(item => item.Library === 'Activities');
+            // Filter to only show tools (not activities)
+            const toolsOnly = cleaned.filter(item => item.Library === 'Tools');
             
             // Sort by ID (convert to number for proper sorting)
-            const sorted = activitiesOnly.sort((a, b) => {
+            const sorted = toolsOnly.sort((a, b) => {
               const idA = parseInt(a.id) || 0;
               const idB = parseInt(b.id) || 0;
               return idA - idB;
             });
             
-            setActivities(sorted);
+            setTools(sorted);
             setLoading(false);
           }
         });
@@ -596,45 +581,58 @@ export default function Home() {
 
   const getUniqueOptions = (field: string): string[] => {
     const values = new Set<string>();
-    activities.forEach(act => {
-      const value = act[field];
+    tools.forEach(tool => {
+      const value = tool[field];
       if (value) {
-        if (field === 'Refold Phase(s)') {
-          value.split(/;+/).forEach(phase => {
-            const trimmed = phase.trim();
-            if (trimmed) values.add(trimmed);
-          });
-        } else if (field === 'Parent Skills') {
-          value.split(/[;,]+/).forEach(skill => {
-            const trimmed = skill.trim();
-            if (trimmed) values.add(trimmed);
-          });
-        } else {
-          values.add(value.trim());
-        }
+        values.add(value.trim());
+      }
+    });
+    return Array.from(values).sort();
+  };
+
+  const getUniquePlatforms = (): string[] => {
+    const values = new Set<string>();
+    tools.forEach(tool => {
+      const value = tool['Platform'];
+      if (value) {
+        // Split platforms by comma or semicolon and trim
+        value.split(/[,;]+/).forEach(platform => {
+          const trimmed = platform.trim();
+          if (trimmed) values.add(trimmed);
+        });
       }
     });
     return Array.from(values).sort();
   };
 
   const clearFilters = () => {
-    setFilters({ pillar: '', phase: '', parentSkill: '' });
+    setFilters({ platform: [], pricing: '', technicalRating: '' });
   };
 
-  const filtered = activities.filter(a => {
-    const matchesQuery = Object.values(a).join(' ').toLowerCase().includes(query.toLowerCase());
-    const matchesPillar = !filters.pillar || a['Pillar'] === filters.pillar;
-    const matchesPhase = !filters.phase || 
-      (a['Refold Phase(s)'] && a['Refold Phase(s)'].split(/;+/).some(phase => phase.trim() === filters.phase));
-    const matchesParentSkill = !filters.parentSkill || 
-      (a['Parent Skills'] && a['Parent Skills'].split(/[;,]+/).some(skill => skill.trim() === filters.parentSkill));
+  const togglePlatformFilter = (platform: string) => {
+    setFilters(prev => ({
+      ...prev,
+      platform: prev.platform.includes(platform)
+        ? prev.platform.filter(p => p !== platform)
+        : [...prev.platform, platform]
+    }));
+  };
+
+  const filtered = tools.filter(tool => {
+    const matchesQuery = Object.values(tool).join(' ').toLowerCase().includes(query.toLowerCase());
+    const matchesPricing = !filters.pricing || tool['Pricing'] === filters.pricing;
+    const matchesTechnicalRating = !filters.technicalRating || tool['Technical Rating'] === filters.technicalRating;
+    const matchesPlatform = filters.platform.length === 0 || 
+      filters.platform.some(platform => 
+        tool['Platform'] && tool['Platform'].split(/[,;]+/).some(p => p.trim() === platform)
+      );
     
-    return matchesQuery && matchesPillar && matchesPhase && matchesParentSkill;
+    return matchesQuery && matchesPricing && matchesTechnicalRating && matchesPlatform;
   });
 
-  // Split into starred and non-starred activities
-  const starredActivities = filtered.filter(a => starredIds.includes(a.id));
-  const regularActivities = filtered.filter(a => !starredIds.includes(a.id));
+  // Split into starred and non-starred tools
+  const starredTools = filtered.filter(tool => starredIds.includes(tool.id));
+  const regularTools = filtered.filter(tool => !starredIds.includes(tool.id));
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -642,7 +640,7 @@ export default function Home() {
         <header className="mb-8 text-center">
           <div className="flex justify-center items-center gap-4 mb-4">
             <h1 className="text-3xl sm:text-4xl font-extrabold" style={{ color: '#230E77' }}>
-              Refold Activity Library
+              Refold Tool Library
             </h1>
             
             <div className="flex items-center gap-2">
@@ -679,7 +677,7 @@ export default function Home() {
           </div>
           
           <p className="mt-2 text-sm sm:text-base font-roboto text-gray-600">
-            {loading ? 'Loading activity data...' : `Loaded ${activities.length} activities`}
+            {loading ? 'Loading tool data...' : `Loaded ${tools.length} tools`}
             {starredLoaded && starredIds.length > 0 && ` • ${starredIds.length} starred`}
           </p>
         </header>
@@ -689,100 +687,103 @@ export default function Home() {
             type="text" 
             value={query} 
             onChange={e => setQuery(e.target.value)} 
-            placeholder="Search activities..." 
+            placeholder="Search tools..." 
             className="w-full px-4 py-3 border-2 rounded-lg bg-white shadow-sm text-base focus:ring-2 focus:ring-opacity-50 text-gray-800"
             style={{ 
               borderColor: '#D1D5DB'
             }}
-            onFocus={(e) => e.target.style.borderColor = '#6544E9'}
+            onFocus={(e) => e.target.style.borderColor = '#F97316'}
             onBlur={(e) => e.target.style.borderColor = '#D1D5DB'}
           />
         </div>
         
-        {activities.length > 0 && (
+        {tools.length > 0 && (
           <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border" style={{ borderColor: '#D1D5DB' }}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-start">
               <div>
-                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700">Pillar</label>
+                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700">Platform</label>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {getUniquePlatforms().map(platform => (
+                    <label key={platform} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={filters.platform.includes(platform)}
+                        onChange={() => togglePlatformFilter(platform)}
+                        className="mr-2 rounded"
+                        style={{ accentColor: '#F97316' }}
+                      />
+                      <span className="text-sm text-gray-700">{platform}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700">Pricing</label>
                 <select 
-                  value={filters.pillar} 
-                  onChange={e => setFilters(prev => ({...prev, pillar: e.target.value}))}
+                  value={filters.pricing} 
+                  onChange={e => setFilters(prev => ({...prev, pricing: e.target.value}))}
                   className="w-full px-3 py-2 border rounded bg-white shadow-sm text-sm focus:ring-2 text-gray-800"
                   style={{ 
                     borderColor: '#D1D5DB'
                   }}
                 >
-                  <option value="">All Pillars</option>
-                  {getUniqueOptions('Pillar').map(option => (
+                  <option value="">All Pricing</option>
+                  {getUniqueOptions('Pricing').map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700">Technical Rating</label>
+                <select 
+                  value={filters.technicalRating} 
+                  onChange={e => setFilters(prev => ({...prev, technicalRating: e.target.value}))}
+                  className="w-full px-3 py-2 border rounded bg-white shadow-sm text-sm focus:ring-2 text-gray-800"
+                  style={{ 
+                    borderColor: '#D1D5DB'
+                  }}
+                >
+                  <option value="">All Ratings</option>
+                  {getUniqueOptions('Technical Rating').map(option => (
                     <option key={option} value={option}>{option}</option>
                   ))}
                 </select>
               </div>
               
-              <div>
-                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700">Phase</label>
-                <select 
-                  value={filters.phase} 
-                  onChange={e => setFilters(prev => ({...prev, phase: e.target.value}))}
-                  className="w-full px-3 py-2 border rounded bg-white shadow-sm text-sm focus:ring-2 text-gray-800"
+              <div className="sm:col-span-2 lg:col-span-2 flex items-end">
+                <button 
+                  onClick={clearFilters}
+                  className="px-4 py-2 text-sm border rounded hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 bg-white"
                   style={{ 
-                    borderColor: '#D1D5DB'
+                    color: '#F97316',
+                    borderColor: '#F97316'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#F97316'
+                    e.currentTarget.style.color = '#FFFFFE'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#FFFFFE'
+                    e.currentTarget.style.color = '#F97316'
                   }}
                 >
-                  <option value="">All Phases</option>
-                  {getUniqueOptions('Refold Phase(s)').map(option => (
-                    <option key={option} value={option}>Phase {option}</option>
-                  ))}
-                </select>
+                  Clear Filters
+                </button>
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700">Parent Skill</label>
-                <select 
-                  value={filters.parentSkill} 
-                  onChange={e => setFilters(prev => ({...prev, parentSkill: e.target.value}))}
-                  className="w-full px-3 py-2 border rounded bg-white shadow-sm text-sm focus:ring-2 text-gray-800"
-                  style={{ 
-                    borderColor: '#D1D5DB'
-                  }}
-                >
-                  <option value="">All Parent Skills</option>
-                  {getUniqueOptions('Parent Skills').map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <button 
-                onClick={clearFilters}
-                className="px-4 py-2 text-sm border rounded hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 bg-white"
-                style={{ 
-                  color: '#6544E9',
-                  borderColor: '#6544E9'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#6544E9'
-                  e.currentTarget.style.color = '#FFFFFE'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#FFFFFE'
-                  e.currentTarget.style.color = '#6544E9'
-                }}
-              >
-                Clear Filters
-              </button>
             </div>
             
             <div className="mt-3 text-sm font-roboto text-gray-600">
-              Showing {filtered.length} of {activities.length} activities
-              {starredActivities.length > 0 && ` (${starredActivities.length} starred)`}
+              Showing {filtered.length} of {tools.length} tools
+              {starredTools.length > 0 && ` (${starredTools.length} starred)`}
             </div>
           </div>
         )}
 
         <div className="space-y-6">
-          {/* Starred Activities Section */}
-          {starredActivities.length > 0 && (
+          {/* Starred Tools Section */}
+          {starredTools.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <svg 
@@ -795,22 +796,22 @@ export default function Home() {
                   <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"></polygon>
                 </svg>
                 <h2 className="text-xl font-extrabold" style={{ color: '#230E77' }}>
-                  Starred Activities ({starredActivities.length})
+                  Starred Tools ({starredTools.length})
                 </h2>
               </div>
               <div className="space-y-6">
-                {starredActivities.map((a) => (
+                {starredTools.map((tool) => (
                   <Card 
-                    key={`starred-${a.id}`} 
-                    act={a} 
-                    isOpen={expandedCards.has(a.id)}
+                    key={`starred-${tool.id}`} 
+                    tool={tool} 
+                    isOpen={expandedCards.has(tool.id)}
                     onToggle={toggleCard}
-                    activities={activities}
+                    tools={tools}
                   />
                 ))}
               </div>
               
-              {regularActivities.length > 0 && (
+              {regularTools.length > 0 && (
                 <div className="my-8">
                   <hr className="border-gray-300" />
                 </div>
@@ -818,22 +819,22 @@ export default function Home() {
             </div>
           )}
 
-          {/* Regular Activities Section */}
-          {regularActivities.length > 0 && (
+          {/* Regular Tools Section */}
+          {regularTools.length > 0 && (
             <div>
-              {starredActivities.length > 0 && (
+              {starredTools.length > 0 && (
                 <h2 className="text-xl font-extrabold mb-4" style={{ color: '#230E77' }}>
-                  All Activities ({regularActivities.length})
+                  All Tools ({regularTools.length})
                 </h2>
               )}
               <div className="space-y-6">
-                {regularActivities.map((a) => (
+                {regularTools.map((tool) => (
                   <Card 
-                    key={`regular-${a.id}`} 
-                    act={a} 
-                    isOpen={expandedCards.has(a.id)}
+                    key={`regular-${tool.id}`} 
+                    tool={tool} 
+                    isOpen={expandedCards.has(tool.id)}
                     onToggle={toggleCard}
-                    activities={activities}
+                    tools={tools}
                   />
                 ))}
               </div>
@@ -848,11 +849,11 @@ export default function Home() {
           onClick={scrollToTop}
           className="fixed bottom-6 right-6 p-3 rounded-full shadow-lg transition-all duration-300 hover:shadow-xl focus:outline-none focus:ring-2 z-50"
           style={{ 
-            backgroundColor: '#6544E9',
+            backgroundColor: '#F97316',
             color: '#FFFFFE'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#230E77'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6544E9'}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#EA580C'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F97316'}
           title="Scroll to top"
         >
           <svg 

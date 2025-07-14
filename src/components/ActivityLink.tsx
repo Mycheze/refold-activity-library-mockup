@@ -14,12 +14,19 @@ const ActivityLink = ({ activity, children }: ActivityLinkProps) => {
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.open(`/activity/${activity.id}`, '_blank');
+    
+    // Determine if this is a tool or activity based on Library field
+    const isTool = activity.Library === 'Tools';
+    const url = isTool ? `/tool/${activity.id}` : `/activity/${activity.id}`;
+    
+    window.open(url, '_blank');
   };
 
   const phases = activity['Refold Phase(s)'] 
     ? activity['Refold Phase(s)'].split(/;+/).map(p => p.trim()).filter(Boolean)
     : [];
+
+  const isTool = activity.Library === 'Tools';
 
   return (
     <span className="relative inline-block">
@@ -28,7 +35,7 @@ const ActivityLink = ({ activity, children }: ActivityLinkProps) => {
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
         className="underline hover:no-underline transition-all duration-200 cursor-pointer"
-        style={{ color: '#8B5CF6' }} // Purple to distinguish from regular links
+        style={{ color: isTool ? '#F97316' : '#8B5CF6' }} // Orange for tools, purple for activities
       >
         {children}
       </button>
@@ -59,20 +66,43 @@ const ActivityLink = ({ activity, children }: ActivityLinkProps) => {
             
             <div className="flex flex-wrap gap-1">
               {activity['Type'] && (
-                <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#F3CE5B', color: '#230E77' }}>
+                <span 
+                  className="px-2 py-0.5 rounded-full text-xs font-medium" 
+                  style={{ 
+                    backgroundColor: isTool ? '#FB923C' : '#F3CE5B', 
+                    color: isTool ? '#FFFFFE' : '#230E77' 
+                  }}
+                >
                   {activity['Type']}
                 </span>
               )}
-              {activity['Pillar'] && (
-                <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#6544E9', color: '#FFFFFE' }}>
-                  {activity['Pillar']}
-                </span>
+              {isTool ? (
+                <>
+                  {activity['Platform'] && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#F97316', color: '#FFFFFE' }}>
+                      {activity['Platform']}
+                    </span>
+                  )}
+                  {activity['Pricing'] && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#FDBA74', color: '#230E77' }}>
+                      {activity['Pricing']}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  {activity['Pillar'] && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#6544E9', color: '#FFFFFE' }}>
+                      {activity['Pillar']}
+                    </span>
+                  )}
+                  {phases.map((p, i) => (
+                    <span key={i} className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#BFB2F6', color: '#230E77' }}>
+                      Phase {p}
+                    </span>
+                  ))}
+                </>
               )}
-              {phases.map((p, i) => (
-                <span key={i} className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#BFB2F6', color: '#230E77' }}>
-                  Phase {p}
-                </span>
-              ))}
             </div>
             
             <p className="text-xs text-gray-500 italic">
