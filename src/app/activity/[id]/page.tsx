@@ -11,9 +11,14 @@ interface Activity {
   [key: string]: string;
 }
 
+interface Tool {
+  [key: string]: string;
+}
+
 interface FormattedTextProps {
   children?: string;
   activities?: Activity[];
+  tools?: Tool[];
   currentActivityId?: string;
 }
 
@@ -49,7 +54,7 @@ const Video = ({ title, src }: { title: string; src: string }) => (
   </div>
 );
 
-const FormattedText = ({ children, activities = [], currentActivityId }: FormattedTextProps) => {
+const FormattedText = ({ children, activities = [], tools = [], currentActivityId }: FormattedTextProps) => {
   if (!children) return null;
   
   // Build activity lookup structures
@@ -67,6 +72,23 @@ const FormattedText = ({ children, activities = [], currentActivityId }: Formatt
     
     // Sort by length (longest first) for proper matching
     sortedActivityNames.sort((a, b) => b.length - a.length);
+  }
+
+  // Build tool lookup structures
+  const toolMap = new Map<string, Tool>();
+  const sortedToolNames: string[] = [];
+  
+  if (tools.length > 0) {
+    tools.forEach(tool => {
+      const displayName = tool['Display Name'] || tool['code name'];
+      if (displayName && displayName.toLowerCase() !== 'other') {
+        toolMap.set(displayName.toLowerCase(), tool);
+        sortedToolNames.push(displayName);
+      }
+    });
+    
+    // Sort by length (longest first) for proper matching
+    sortedToolNames.sort((a, b) => b.length - a.length);
   }
   
   const escapeRegex = (str: string) => {
@@ -97,7 +119,51 @@ const FormattedText = ({ children, activities = [], currentActivityId }: Formatt
               const activity = activityMap.get(activityName.toLowerCase());
               if (activity) {
                 newResult.push(
-                  <ActivityLink key={`${activity.id}-${index}-${i}`} activity={activity}>
+                  <ActivityLink key={`activity-${activity.id}-${index}-${i}`} activity={activity}>
+                    {matches[i]}
+                  </ActivityLink>
+                );
+              } else {
+                newResult.push(matches[i]);
+              }
+            }
+          }
+        } else {
+          newResult.push(item);
+        }
+      });
+      
+      result = newResult;
+    });
+    
+    return result;
+  };
+
+  const processToolLinks = (text: string): (string | React.JSX.Element)[] => {
+    if (sortedToolNames.length === 0) {
+      return [text];
+    }
+    
+    let result: (string | React.JSX.Element)[] = [text];
+    
+    sortedToolNames.forEach((toolName, index) => {
+      const newResult: (string | React.JSX.Element)[] = [];
+      
+      result.forEach((item) => {
+        if (typeof item === 'string') {
+          const regex = new RegExp(`\\b${escapeRegex(toolName)}\\b`, 'gi');
+          const parts = item.split(regex);
+          const matches = item.match(regex) || [];
+          
+          for (let i = 0; i < parts.length; i++) {
+            if (parts[i]) {
+              newResult.push(parts[i]);
+            }
+            if (i < matches.length) {
+              const tool = toolMap.get(toolName.toLowerCase());
+              if (tool) {
+                newResult.push(
+                  <ActivityLink key={`tool-${tool.id}-${index}-${i}`} activity={tool}>
                     {matches[i]}
                   </ActivityLink>
                 );
@@ -120,13 +186,25 @@ const FormattedText = ({ children, activities = [], currentActivityId }: Formatt
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   
   const formatTextWithLinks = (text: string) => {
-    // First process activity links
+    // First process activity links, then tool links
     const withActivityLinks = processActivityLinks(text);
+    
+    // Process tool links on the result
+    const finalProcessed: (string | React.JSX.Element)[] = [];
+    
+    withActivityLinks.forEach((item) => {
+      if (typeof item === 'string') {
+        const withToolLinks = processToolLinks(item);
+        finalProcessed.push(...withToolLinks);
+      } else {
+        finalProcessed.push(item);
+      }
+    });
     
     // Then process URL links on string parts only
     const finalResult: (string | React.JSX.Element)[] = [];
     
-    withActivityLinks.forEach((item, itemIndex) => {
+    finalProcessed.forEach((item, itemIndex) => {
       if (typeof item === 'string') {
         const parts = item.split(urlRegex);
         parts.forEach((part, partIndex) => {
@@ -205,9 +283,10 @@ const FormattedText = ({ children, activities = [], currentActivityId }: Formatt
   return <div>{elements}</div>;
 };
 
-const TipsSection = ({ content, activities = [], currentActivityId }: { 
+const TipsSection = ({ content, activities = [], tools = [], currentActivityId }: { 
   content?: string; 
   activities?: Activity[];
+  tools?: Tool[];
   currentActivityId?: string;
 }) => {
   const [tipsOpen, setTipsOpen] = useState(false);
@@ -234,7 +313,7 @@ const TipsSection = ({ content, activities = [], currentActivityId }: {
       </button>
       {tipsOpen && (
         <div className="mt-2 ml-6">
-          <FormattedText activities={activities} currentActivityId={currentActivityId}>{content}</FormattedText>
+          <FormattedText activities={activities} tools={tools} currentActivityId={currentActivityId}>{content}</FormattedText>
         </div>
       )}
     </div>
@@ -270,6 +349,74 @@ const DemoSection = ({ demoUrl }: { demoUrl?: string }) => {
         </div>
       )}
     </div>
+  );
+};
+
+// Tool tooltip component
+const ToolTooltip = ({ tool, children }: { tool: Tool; children: React.ReactNode }) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.open(`/tool/${tool.id}`, '_blank');
+  };
+
+  return (
+    <span className="relative inline-block">
+      <button
+        onClick={handleClick}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        className="px-2 py-1 rounded-full text-xs font-medium font-roboto cursor-pointer transition-all duration-200 hover:shadow-md"
+        style={{ backgroundColor: '#F97316', color: '#FFFFFE' }}
+      >
+        {children}
+      </button>
+      
+      {showTooltip && (
+        <div 
+          className="absolute z-50 p-3 bg-white border rounded-lg shadow-xl w-80 -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full"
+          style={{ borderColor: '#D1D5DB' }}
+        >
+          {/* Tooltip arrow */}
+          <div 
+            className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0"
+            style={{
+              borderLeft: '6px solid transparent',
+              borderRight: '6px solid transparent',
+              borderTop: '6px solid white'
+            }}
+          />
+          
+          <div className="space-y-2">
+            <h4 className="font-bold text-sm" style={{ color: '#230E77' }}>
+              {tool['Display Name'] || tool['code name']}
+            </h4>
+            
+            <p className="text-xs text-gray-700 leading-relaxed">
+              {tool['Short Description']}
+            </p>
+            
+            <div className="flex flex-wrap gap-1">
+              {tool['Type'] && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#F97316', color: '#FFFFFE' }}>
+                  {tool['Type']}
+                </span>
+              )}
+              {tool['Pillar'] && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#FDBA74', color: '#230E77' }}>
+                  {tool['Pillar']}
+                </span>
+              )}
+            </div>
+            
+            <p className="text-xs text-gray-500 italic">
+              Click to see tool details
+            </p>
+          </div>
+        </div>
+      )}
+    </span>
   );
 };
 
@@ -313,6 +460,7 @@ const CopyUrlButton = () => {
 export default function ActivityPage({ params }: { params: Promise<{ id: string }> }) {
   const [activity, setActivity] = useState<Activity | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [activityId, setActivityId] = useState<string>('');
@@ -339,26 +487,34 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
           skipEmptyLines: false,
           complete: (res) => {
             const cleaned = (res.data as Record<string, unknown>[]).map((r) => {
-              const o: Activity = {};
+              const o: Activity | Tool = {};
               Object.entries(r).forEach(([k, v]) => {
                 o[k] = typeof v === 'string' ? v.replace(/\r/g, '').replace(/⏎/g, '\n').trim() : v as string;
               });
               return o;
             });
             
-            // Filter to only show activities (not tools)
-            const activitiesOnly = cleaned.filter(item => item.Library === 'Activities');
+            // Separate activities and tools
+            const activitiesOnly = cleaned.filter(item => item.Library === 'Activities') as Activity[];
+            const toolsOnly = cleaned.filter(item => item.Library === 'Tools') as Tool[];
             
-            // Sort activities by ID for consistency
-            const sorted = activitiesOnly.sort((a, b) => {
+            // Sort by ID for consistency
+            const sortedActivities = activitiesOnly.sort((a, b) => {
+              const idA = parseInt(a.id) || 0;
+              const idB = parseInt(b.id) || 0;
+              return idA - idB;
+            });
+
+            const sortedTools = toolsOnly.sort((a, b) => {
               const idA = parseInt(a.id) || 0;
               const idB = parseInt(b.id) || 0;
               return idA - idB;
             });
             
-            setActivities(sorted);
+            setActivities(sortedActivities);
+            setTools(sortedTools);
             
-            const foundActivity = sorted.find(act => act.id === activityId);
+            const foundActivity = sortedActivities.find(act => act.id === activityId);
             if (foundActivity) {
               setActivity(foundActivity);
             } else {
@@ -408,6 +564,16 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
 
   const whyUrl = getEmbedUrl(activity['Video What and why']);
   const demoUrl = getEmbedUrl(activity['Video Demo']);
+
+  // Get tools for this activity
+  const activityTools = activity['Tools'] ? 
+    activity['Tools'].split(/;+/).map(toolName => {
+      const trimmed = toolName.trim();
+      return tools.find(tool => 
+        (tool['Display Name'] && tool['Display Name'].toLowerCase() === trimmed.toLowerCase()) ||
+        (tool['code name'] && tool['code name'].toLowerCase() === trimmed.toLowerCase())
+      );
+    }).filter((tool): tool is Tool => tool !== undefined) : [];
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -469,6 +635,20 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
               ))}
             </div>
 
+            {/* Tools section */}
+            {activityTools.length > 0 && (
+              <div>
+                <div className="text-sm font-medium text-gray-700 mb-2">Recommended Tools:</div>
+                <div className="flex flex-wrap gap-2">
+                  {activityTools.map((tool, i) => (
+                    <ToolTooltip key={i} tool={tool}>
+                      {tool['Display Name'] || tool['code name']}
+                    </ToolTooltip>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 gap-4 text-sm text-gray-600">
               {activity['Parent Skills'] && (
                 <div className="break-words">
@@ -510,7 +690,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
 
           {/* Expanded content */}
           <div className="p-4 sm:p-6 bg-gray-50 space-y-6">
-            <FormattedText activities={activities} currentActivityId={activity.id}>{activity['Long Description']}</FormattedText>
+            <FormattedText activities={activities} tools={tools} currentActivityId={activity.id}>{activity['Long Description']}</FormattedText>
             {(whyUrl || demoUrl) && (
               <div className="space-y-6">
                 {whyUrl && <Video title="What & Why" src={whyUrl} />}
@@ -536,10 +716,10 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
                      .replace('Intro', `${activity['Display Name'] || activity['code name']} Walkthrough`)
                      .replace('Issues', 'Common issues and questions')}
                 </h4>
-                <FormattedText activities={activities} currentActivityId={activity.id}>{activity[sec]}</FormattedText>
+                <FormattedText activities={activities} tools={tools} currentActivityId={activity.id}>{activity[sec]}</FormattedText>
               </div>
             ))}
-            <TipsSection content={activity['Written Guide - Tips and Tricks']} activities={activities} currentActivityId={activity.id} />
+            <TipsSection content={activity['Written Guide - Tips and Tricks']} activities={activities} tools={tools} currentActivityId={activity.id} />
           </div>
         </div>
       </div>

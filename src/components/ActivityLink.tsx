@@ -69,7 +69,7 @@ const ActivityLink = ({ activity, children }: ActivityLinkProps) => {
                 <span 
                   className="px-2 py-0.5 rounded-full text-xs font-medium" 
                   style={{ 
-                    backgroundColor: isTool ? '#FB923C' : '#F3CE5B', 
+                    backgroundColor: isTool ? '#F97316' : '#F3CE5B', 
                     color: isTool ? '#FFFFFE' : '#230E77' 
                   }}
                 >
@@ -78,14 +78,19 @@ const ActivityLink = ({ activity, children }: ActivityLinkProps) => {
               )}
               {isTool ? (
                 <>
-                  {activity['Platform'] && (
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#F97316', color: '#FFFFFE' }}>
-                      {activity['Platform']}
+                  {activity['Pillar'] && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#FDBA74', color: '#230E77' }}>
+                      {activity['Pillar']}
                     </span>
                   )}
-                  {activity['Pricing'] && (
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#FDBA74', color: '#230E77' }}>
-                      {activity['Pricing']}
+                  {activity['Refold Phase(s)'] && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#FED7AA', color: '#230E77' }}>
+                      Tech Level: {activity['Refold Phase(s)']}
+                    </span>
+                  )}
+                  {activity['Parent Skills'] && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#FB923C', color: '#FFFFFE' }}>
+                      {activity['Parent Skills'] === 'All' ? 'All Languages' : activity['Parent Skills']}
                     </span>
                   )}
                 </>
@@ -106,7 +111,7 @@ const ActivityLink = ({ activity, children }: ActivityLinkProps) => {
             </div>
             
             <p className="text-xs text-gray-500 italic">
-              Click to see in detail
+              Click to see {isTool ? 'tool' : 'activity'} details
             </p>
           </div>
         </div>

@@ -19,7 +19,7 @@ interface FormattedTextProps {
 
 const GUIDE_SECTIONS = [
   'Written Guide - Intro',
-  'Written Guide - Health Routine',
+  'Written Guide - Target Audience',
   'Written Guide - Issues',
   'Written Guide - Setup',
   'Written Guide - Walkthrough'
@@ -203,6 +203,118 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
   }
   
   return <div>{elements}</div>;
+};
+
+// Inline version for alternatives that don't break to new lines
+const FormattedInlineText = ({ children, tools = [], currentToolId }: FormattedTextProps) => {
+  if (!children) return null;
+  
+  // Build tool lookup structures
+  const toolMap = new Map<string, Tool>();
+  const sortedToolNames: string[] = [];
+  
+  if (tools.length > 0) {
+    tools.forEach(tool => {
+      const displayName = tool['Display Name'] || tool['code name'];
+      if (displayName && tool.id !== currentToolId && displayName.toLowerCase() !== 'other') {
+        toolMap.set(displayName.toLowerCase(), tool);
+        sortedToolNames.push(displayName);
+      }
+    });
+    
+    // Sort by length (longest first) for proper matching
+    sortedToolNames.sort((a, b) => b.length - a.length);
+  }
+  
+  const escapeRegex = (str: string) => {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  };
+  
+  const processToolLinks = (text: string): (string | React.JSX.Element)[] => {
+    if (sortedToolNames.length === 0) {
+      return [text];
+    }
+    
+    let result: (string | React.JSX.Element)[] = [text];
+    
+    sortedToolNames.forEach((toolName, index) => {
+      const newResult: (string | React.JSX.Element)[] = [];
+      
+      result.forEach((item) => {
+        if (typeof item === 'string') {
+          const regex = new RegExp(`\\b${escapeRegex(toolName)}\\b`, 'gi');
+          const parts = item.split(regex);
+          const matches = item.match(regex) || [];
+          
+          for (let i = 0; i < parts.length; i++) {
+            if (parts[i]) {
+              newResult.push(parts[i]);
+            }
+            if (i < matches.length) {
+              const tool = toolMap.get(toolName.toLowerCase());
+              if (tool) {
+                newResult.push(
+                  <ActivityLink key={`${tool.id}-${index}-${i}`} activity={tool}>
+                    {matches[i]}
+                  </ActivityLink>
+                );
+              } else {
+                newResult.push(matches[i]);
+              }
+            }
+          }
+        } else {
+          newResult.push(item);
+        }
+      });
+      
+      result = newResult;
+    });
+    
+    return result;
+  };
+  
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  
+  const formatTextWithLinks = (text: string) => {
+    // First process tool links
+    const withToolLinks = processToolLinks(text);
+    
+    // Then process URL links on string parts only
+    const finalResult: (string | React.JSX.Element)[] = [];
+    
+    withToolLinks.forEach((item, itemIndex) => {
+      if (typeof item === 'string') {
+        const parts = item.split(urlRegex);
+        parts.forEach((part, partIndex) => {
+          if (urlRegex.test(part)) {
+            finalResult.push(
+              <a
+                key={`url-${itemIndex}-${partIndex}`}
+                href={part}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:no-underline transition-all duration-200"
+                style={{ color: '#F97316' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {part}
+              </a>
+            );
+          } else if (part) {
+            finalResult.push(part);
+          }
+        });
+      } else {
+        finalResult.push(item);
+      }
+    });
+    
+    return finalResult;
+  };
+  
+  // For inline text, just process the links without wrapping in divs
+  return <span>{formatTextWithLinks(children)}</span>;
 };
 
 const TipsSection = ({ content, tools = [], currentToolId }: { 
@@ -453,36 +565,36 @@ export default function ToolPage({ params }: { params: Promise<{ id: string }> }
           <div className="p-4 sm:p-6 space-y-4">
             <div className="flex flex-wrap gap-2">
               {tool['Type'] && (
-                <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#FB923C', color: '#FFFFFE' }}>
+                <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#F97316', color: '#FFFFFE' }}>
                   {tool['Type']}
                 </span>
               )}
-              {tool['Platform'] && (
-                <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#F97316', color: '#FFFFFE' }}>
-                  {tool['Platform']}
+              {tool['Pillar'] && (
+                <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#FDBA74', color: '#230E77' }}>
+                  {tool['Pillar']}
                 </span>
               )}
-              {tool['Pricing'] && (
-                <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#FDBA74', color: '#230E77' }}>
-                  {tool['Pricing']}
+              {tool['Refold Phase(s)'] && (
+                <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#FED7AA', color: '#230E77' }}>
+                  Tech Level: {tool['Refold Phase(s)']}
+                </span>
+              )}
+              {tool['Parent Skills'] && (
+                <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#FB923C', color: '#FFFFFE' }}>
+                  {tool['Parent Skills'] === 'All' ? 'All Languages' : tool['Parent Skills']}
                 </span>
               )}
             </div>
 
             <div className="grid grid-cols-1 gap-4 text-sm text-gray-600">
-              {tool['Languages'] && (
+              {tool['parent skills cat'] && (
                 <div className="break-words">
-                  <strong>Languages:</strong> {tool['Languages']}
-                </div>
-              )}
-              {tool['Parent Skills'] && (
-                <div className="break-words">
-                  <strong>Skills:</strong> {tool['Parent Skills']}
+                  <strong>Skills:</strong> {tool['parent skills cat']}
                 </div>
               )}
               {tool['Alternatives'] && (
                 <div className="break-words">
-                  <strong>Alternatives:</strong> <FormattedText tools={tools} currentToolId={tool.id}>{tool['Alternatives']}</FormattedText>
+                  <strong>Alternatives:</strong> <FormattedInlineText tools={tools} currentToolId={tool.id}>{tool['Alternatives']}</FormattedInlineText>
                 </div>
               )}
               {tool['Tools'] && (
@@ -526,8 +638,8 @@ export default function ToolPage({ params }: { params: Promise<{ id: string }> }
               <div key={sec}>
                 <h4 className="font-extrabold" style={{ color: '#230E77' }}>
                   {sec.replace('Written Guide - ','')
-                     .replace('Health Routine', 'How this fits into a healthy learning routine')
-                     .replace('Intro', `${tool['Display Name'] || tool['code name']} Walkthrough`)
+                     .replace('Target Audience', 'Who this tool is for')
+                     .replace('Intro', `${tool['Display Name'] || tool['code name']} Overview`)
                      .replace('Issues', 'Common issues and questions')}
                 </h4>
                 <FormattedText tools={tools} currentToolId={tool.id}>{tool[sec]}</FormattedText>

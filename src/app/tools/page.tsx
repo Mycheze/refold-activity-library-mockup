@@ -25,6 +25,21 @@ const GUIDE_SECTIONS = [
   'Written Guide - Walkthrough'
 ];
 
+const PRICING_EXPLANATIONS = {
+  'Free': 'Completely free to use',
+  'Cosmetics': 'Features are free, but small tweaks and customization is paid (colors, cloud syncing, ad removal)',
+  'Freemium': 'There is a free tier which has features, but you must pay to access additional features',
+  'Paid': 'Access to the tool is paid, either one time or with a subscription. Many paid tools have free trials'
+};
+
+const TECH_LEVEL_EXPLANATIONS = {
+  '1': 'No experience required. There is minimal set up, and it\'s very user-friendly (simple apps or web pages).',
+  '2': 'Purpose built tool with learning curve. Using the tool is generally simple, but might require learning or some customization.',
+  '3': 'User friendly, but requires setup and learning. Still approachable for most people, but will require effort to learn and set up.',
+  '4': 'Slightly technical. Using the tool might require tinkering, special knowledge or a non-standard setup.',
+  '5': 'Very technical. Using and installing the tool might require technical experience and troubleshooting.'
+};
+
 const getEmbedUrl = (url: string): string | null => {
   if (!url) return null;
   const match = url.match(/(?:youtu\.be\/|watch\?v=)([\w-]+)/);
@@ -205,6 +220,118 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
   return <div>{elements}</div>;
 };
 
+// Inline version for alternatives that don't break to new lines
+const FormattedInlineText = ({ children, tools = [], currentToolId }: FormattedTextProps) => {
+  if (!children) return null;
+  
+  // Build tool lookup structures
+  const toolMap = new Map<string, Tool>();
+  const sortedToolNames: string[] = [];
+  
+  if (tools.length > 0) {
+    tools.forEach(tool => {
+      const displayName = tool['Display Name'] || tool['code name'];
+      if (displayName && tool.id !== currentToolId && displayName.toLowerCase() !== 'other') {
+        toolMap.set(displayName.toLowerCase(), tool);
+        sortedToolNames.push(displayName);
+      }
+    });
+    
+    // Sort by length (longest first) for proper matching
+    sortedToolNames.sort((a, b) => b.length - a.length);
+  }
+  
+  const escapeRegex = (str: string) => {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  };
+  
+  const processToolLinks = (text: string): (string | React.JSX.Element)[] => {
+    if (sortedToolNames.length === 0) {
+      return [text];
+    }
+    
+    let result: (string | React.JSX.Element)[] = [text];
+    
+    sortedToolNames.forEach((toolName, index) => {
+      const newResult: (string | React.JSX.Element)[] = [];
+      
+      result.forEach((item) => {
+        if (typeof item === 'string') {
+          const regex = new RegExp(`\\b${escapeRegex(toolName)}\\b`, 'gi');
+          const parts = item.split(regex);
+          const matches = item.match(regex) || [];
+          
+          for (let i = 0; i < parts.length; i++) {
+            if (parts[i]) {
+              newResult.push(parts[i]);
+            }
+            if (i < matches.length) {
+              const tool = toolMap.get(toolName.toLowerCase());
+              if (tool) {
+                newResult.push(
+                  <ActivityLink key={`${tool.id}-${index}-${i}`} activity={tool}>
+                    {matches[i]}
+                  </ActivityLink>
+                );
+              } else {
+                newResult.push(matches[i]);
+              }
+            }
+          }
+        } else {
+          newResult.push(item);
+        }
+      });
+      
+      result = newResult;
+    });
+    
+    return result;
+  };
+  
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  
+  const formatTextWithLinks = (text: string) => {
+    // First process tool links
+    const withToolLinks = processToolLinks(text);
+    
+    // Then process URL links on string parts only
+    const finalResult: (string | React.JSX.Element)[] = [];
+    
+    withToolLinks.forEach((item, itemIndex) => {
+      if (typeof item === 'string') {
+        const parts = item.split(urlRegex);
+        parts.forEach((part, partIndex) => {
+          if (urlRegex.test(part)) {
+            finalResult.push(
+              <a
+                key={`url-${itemIndex}-${partIndex}`}
+                href={part}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:no-underline transition-all duration-200"
+                style={{ color: '#F97316' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {part}
+              </a>
+            );
+          } else if (part) {
+            finalResult.push(part);
+          }
+        });
+      } else {
+        finalResult.push(item);
+      }
+    });
+    
+    return finalResult;
+  };
+  
+  // For inline text, just process the links without wrapping in divs
+  return <span>{formatTextWithLinks(children)}</span>;
+};
+
 const TipsSection = ({ content, tools = [], currentToolId }: { 
   content?: string; 
   tools?: Tool[];
@@ -272,6 +399,91 @@ const DemoSection = ({ demoUrl }: { demoUrl?: string }) => {
         </div>
       )}
     </div>
+  );
+};
+
+// Tooltip component for badges
+const TooltipBadge = ({ 
+  children, 
+  tooltip, 
+  backgroundColor, 
+  textColor 
+}: { 
+  children: React.ReactNode; 
+  tooltip: string; 
+  backgroundColor: string; 
+  textColor: string; 
+}) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  return (
+    <span className="relative inline-block">
+      <span 
+        className="px-2 py-1 rounded-full text-xs font-medium font-roboto cursor-help" 
+        style={{ backgroundColor, color: textColor }}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+      >
+        {children}
+      </span>
+      
+      {showTooltip && (
+        <div 
+          className="absolute z-50 p-3 bg-white border rounded-lg shadow-xl w-80 -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full"
+          style={{ borderColor: '#D1D5DB' }}
+        >
+          {/* Tooltip arrow */}
+          <div 
+            className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0"
+            style={{
+              borderLeft: '6px solid transparent',
+              borderRight: '6px solid transparent',
+              borderTop: '6px solid white'
+            }}
+          />
+          <div className="text-sm text-gray-700">
+            {tooltip}
+          </div>
+        </div>
+      )}
+    </span>
+  );
+};
+
+// Info icon with tooltip for filter sections
+const InfoTooltip = ({ content }: { content: string }) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  return (
+    <span className="relative inline-block">
+      <span 
+        className="cursor-help text-gray-400 text-sm"
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+      >
+        ℹ️
+      </span>
+      
+      {showTooltip && (
+        <div 
+          className="absolute z-50 p-3 bg-white border rounded-lg shadow-xl w-80 -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full"
+          style={{ borderColor: '#D1D5DB' }}
+        >
+          {/* Tooltip arrow */}
+          <div 
+            className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0"
+            style={{
+              borderLeft: '6px solid transparent',
+              borderRight: '6px solid transparent',
+              borderTop: '6px solid white'
+            }}
+          />
+          <div className="text-sm text-gray-700 whitespace-pre-line">
+            {content}
+          </div>
+        </div>
+      )}
+    </span>
   );
 };
 
@@ -416,41 +628,46 @@ const Card = ({ tool, isOpen, onToggle, cardRef, tools }: CardProps) => {
       <div className="p-4 sm:p-6 space-y-4 pb-12">
         <div className="flex flex-wrap gap-2">
           {tool['Type'] && (
-            <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#FB923C', color: '#FFFFFE' }}>
+            <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#F97316', color: '#FFFFFE' }}>
               {tool['Type']}
             </span>
           )}
-          {tool['Platform'] && (
-            <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#F97316', color: '#FFFFFE' }}>
-              {tool['Platform']}
-            </span>
+          {tool['Pillar'] && (
+            <TooltipBadge
+              tooltip={PRICING_EXPLANATIONS[tool['Pillar'] as keyof typeof PRICING_EXPLANATIONS] || tool['Pillar']}
+              backgroundColor="#FDBA74"
+              textColor="#230E77"
+            >
+              {tool['Pillar']}
+            </TooltipBadge>
           )}
-          {tool['Pricing'] && (
-            <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#FDBA74', color: '#230E77' }}>
-              {tool['Pricing']}
-            </span>
-          )}
-          {tool['Technical Rating'] && (
-            <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#FED7AA', color: '#230E77' }}>
-              {tool['Technical Rating']}
-            </span>
+          {tool['Refold Phase(s)'] && (
+            <TooltipBadge
+              tooltip={TECH_LEVEL_EXPLANATIONS[tool['Refold Phase(s)'] as keyof typeof TECH_LEVEL_EXPLANATIONS] || `Tech Level: ${tool['Refold Phase(s)']}`}
+              backgroundColor="#FED7AA"
+              textColor="#230E77"
+            >
+              Tech Level: {tool['Refold Phase(s)']}
+            </TooltipBadge>
           )}
         </div>
 
+        {/* Languages on separate line */}
+        {tool['Parent Skills'] && (
+          <div className="text-sm text-gray-600">
+            <strong>Languages:</strong> {tool['Parent Skills'] === 'All' ? 'All Languages' : tool['Parent Skills']}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-4 text-sm text-gray-600">
-          {tool['Languages'] && (
+          {tool['parent skills cat'] && (
             <div className="break-words">
-              <strong>Languages:</strong> {tool['Languages']}
-            </div>
-          )}
-          {tool['Parent Skills'] && (
-            <div className="break-words">
-              <strong>Skills:</strong> {tool['Parent Skills']}
+              <strong>Skills:</strong> {tool['parent skills cat']}
             </div>
           )}
           {tool['Alternatives'] && (
             <div className="break-words">
-              <strong>Alternatives:</strong> <FormattedText tools={tools} currentToolId={tool.id}>{tool['Alternatives']}</FormattedText>
+              <strong>Alternatives:</strong> <FormattedInlineText tools={tools} currentToolId={tool.id}>{tool['Alternatives']}</FormattedInlineText>
             </div>
           )}
         </div>
@@ -503,7 +720,8 @@ export default function ToolsPage() {
   const [filters, setFilters] = useState({
     platform: [] as string[],
     pricing: '',
-    technicalRating: ''
+    technicalRating: '',
+    languages: [] as string[]
   });
 
   const { starredIds, isLoaded: starredLoaded } = useStarredActivities();
@@ -583,7 +801,7 @@ export default function ToolsPage() {
     const values = new Set<string>();
     tools.forEach(tool => {
       const value = tool[field];
-      if (value) {
+      if (value && value.trim()) {
         values.add(value.trim());
       }
     });
@@ -593,8 +811,8 @@ export default function ToolsPage() {
   const getUniquePlatforms = (): string[] => {
     const values = new Set<string>();
     tools.forEach(tool => {
-      const value = tool['Platform'];
-      if (value) {
+      const value = tool['Type'];
+      if (value && value.trim()) {
         // Split platforms by comma or semicolon and trim
         value.split(/[,;]+/).forEach(platform => {
           const trimmed = platform.trim();
@@ -605,8 +823,23 @@ export default function ToolsPage() {
     return Array.from(values).sort();
   };
 
+  const getUniqueLanguages = (): string[] => {
+    const values = new Set<string>();
+    tools.forEach(tool => {
+      const value = tool['Parent Skills'];
+      if (value && value.trim() && value !== 'All') {
+        // Split languages by comma or semicolon and trim
+        value.split(/[,;]+/).forEach(language => {
+          const trimmed = language.trim();
+          if (trimmed) values.add(trimmed);
+        });
+      }
+    });
+    return Array.from(values).sort();
+  };
+
   const clearFilters = () => {
-    setFilters({ platform: [], pricing: '', technicalRating: '' });
+    setFilters({ platform: [], pricing: '', technicalRating: '', languages: [] });
   };
 
   const togglePlatformFilter = (platform: string) => {
@@ -618,21 +851,47 @@ export default function ToolsPage() {
     }));
   };
 
+  const toggleLanguageFilter = (language: string) => {
+    setFilters(prev => ({
+      ...prev,
+      languages: prev.languages.includes(language)
+        ? prev.languages.filter(l => l !== language)
+        : [...prev.languages, language]
+    }));
+  };
+
   const filtered = tools.filter(tool => {
     const matchesQuery = Object.values(tool).join(' ').toLowerCase().includes(query.toLowerCase());
-    const matchesPricing = !filters.pricing || tool['Pricing'] === filters.pricing;
-    const matchesTechnicalRating = !filters.technicalRating || tool['Technical Rating'] === filters.technicalRating;
+    const matchesPricing = !filters.pricing || tool['Pillar'] === filters.pricing;
+    const matchesTechnicalRating = !filters.technicalRating || tool['Refold Phase(s)'] === filters.technicalRating;
     const matchesPlatform = filters.platform.length === 0 || 
       filters.platform.some(platform => 
-        tool['Platform'] && tool['Platform'].split(/[,;]+/).some(p => p.trim() === platform)
+        tool['Type'] && tool['Type'].split(/[,;]+/).some(p => p.trim() === platform)
+      );
+    const matchesLanguages = filters.languages.length === 0 ||
+      tool['Parent Skills'] === 'All' || // Include language-agnostic tools
+      filters.languages.some(language =>
+        tool['Parent Skills'] && tool['Parent Skills'].split(/[,;]+/).some(l => l.trim() === language)
       );
     
-    return matchesQuery && matchesPricing && matchesTechnicalRating && matchesPlatform;
+    return matchesQuery && matchesPricing && matchesTechnicalRating && matchesPlatform && matchesLanguages;
   });
 
   // Split into starred and non-starred tools
   const starredTools = filtered.filter(tool => starredIds.includes(tool.id));
   const regularTools = filtered.filter(tool => !starredIds.includes(tool.id));
+
+  // Get unique platforms for filter
+  const uniquePlatforms = getUniquePlatforms();
+
+  // Generate tooltip content for filter info icons
+  const pricingTooltipContent = Object.entries(PRICING_EXPLANATIONS)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join('\n\n');
+
+  const techLevelTooltipContent = Object.entries(TECH_LEVEL_EXPLANATIONS)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join('\n\n');
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -701,9 +960,9 @@ export default function ToolsPage() {
           <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border" style={{ borderColor: '#D1D5DB' }}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-start">
               <div>
-                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700">Platform</label>
+                <label className="block text-sm font-medium mb-2 font-roboto text-gray-700">Platform</label>
                 <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {getUniquePlatforms().map(platform => (
+                  {uniquePlatforms.length > 0 ? uniquePlatforms.map(platform => (
                     <label key={platform} className="flex items-center">
                       <input
                         type="checkbox"
@@ -714,12 +973,17 @@ export default function ToolsPage() {
                       />
                       <span className="text-sm text-gray-700">{platform}</span>
                     </label>
-                  ))}
+                  )) : (
+                    <span className="text-sm text-gray-500">No platforms found</span>
+                  )}
                 </div>
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700">Pricing</label>
+                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700 flex items-center gap-1">
+                  Pricing
+                  <InfoTooltip content={pricingTooltipContent} />
+                </label>
                 <select 
                   value={filters.pricing} 
                   onChange={e => setFilters(prev => ({...prev, pricing: e.target.value}))}
@@ -729,14 +993,17 @@ export default function ToolsPage() {
                   }}
                 >
                   <option value="">All Pricing</option>
-                  {getUniqueOptions('Pricing').map(option => (
+                  {getUniqueOptions('Pillar').map(option => (
                     <option key={option} value={option}>{option}</option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700">Technical Rating</label>
+                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700 flex items-center gap-1">
+                  Technical Rating
+                  <InfoTooltip content={techLevelTooltipContent} />
+                </label>
                 <select 
                   value={filters.technicalRating} 
                   onChange={e => setFilters(prev => ({...prev, technicalRating: e.target.value}))}
@@ -746,13 +1013,31 @@ export default function ToolsPage() {
                   }}
                 >
                   <option value="">All Ratings</option>
-                  {getUniqueOptions('Technical Rating').map(option => (
+                  {getUniqueOptions('Refold Phase(s)').map(option => (
                     <option key={option} value={option}>{option}</option>
                   ))}
                 </select>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 font-roboto text-gray-700">Languages</label>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {getUniqueLanguages().map(language => (
+                    <label key={language} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={filters.languages.includes(language)}
+                        onChange={() => toggleLanguageFilter(language)}
+                        className="mr-2 rounded"
+                        style={{ accentColor: '#F97316' }}
+                      />
+                      <span className="text-sm text-gray-700">{language}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
               
-              <div className="sm:col-span-2 lg:col-span-2 flex items-end">
+              <div className="flex items-end">
                 <button 
                   onClick={clearFilters}
                   className="px-4 py-2 text-sm border rounded hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 bg-white"
