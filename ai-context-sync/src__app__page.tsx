@@ -1,11 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
-import FeedbackButton from '../../components/FeedbackButton';
-import IntroModal from '../../components/IntroModal';
-import ActivityLink from '../../components/ActivityLink';
-import { useStarredActivities } from '../../contexts/StarredContext';
+import FeedbackButton from '../components/FeedbackButton';
+import IntroModal from '../components/IntroModal';
+import ActivityLink from '../components/ActivityLink';
+import { useStarredActivities } from '../contexts/StarredContext';
+
+interface Activity {
+  [key: string]: string;
+}
 
 interface Tool {
   [key: string]: string;
@@ -13,32 +17,18 @@ interface Tool {
 
 interface FormattedTextProps {
   children?: string;
+  activities?: Activity[];
   tools?: Tool[];
-  currentToolId?: string;
+  currentActivityId?: string;
 }
 
 const GUIDE_SECTIONS = [
   'Written Guide - Intro',
-  'Written Guide - Target Audience',
+  'Written Guide - Health Routine',
   'Written Guide - Issues',
   'Written Guide - Setup',
   'Written Guide - Walkthrough'
 ];
-
-const PRICING_EXPLANATIONS = {
-  'Free': 'Completely free to use',
-  'Cosmetics': 'Features are free, but small tweaks and customization is paid (colors, cloud syncing, ad removal)',
-  'Freemium': 'There is a free tier which has features, but you must pay to access additional features',
-  'Paid': 'Access to the tool is paid, either one time or with a subscription. Many paid tools have free trials'
-};
-
-const TECH_LEVEL_EXPLANATIONS = {
-  '1': 'No experience required. There is minimal set up, and it\'s very user-friendly (simple apps or web pages).',
-  '2': 'Purpose built tool with learning curve. Using the tool is generally simple, but might require learning or some customization.',
-  '3': 'User friendly, but requires setup and learning. Still approachable for most people, but will require effort to learn and set up.',
-  '4': 'Slightly technical. Using the tool might require tinkering, special knowledge or a non-standard setup.',
-  '5': 'Very technical. Using and installing the tool might require technical experience and troubleshooting.'
-};
 
 const getEmbedUrl = (url: string): string | null => {
   if (!url) return null;
@@ -64,9 +54,26 @@ const Video = ({ title, src }: { title: string; src: string }) => (
   </div>
 );
 
-const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextProps) => {
+const FormattedText = ({ children, activities = [], tools = [], currentActivityId }: FormattedTextProps) => {
   if (!children) return null;
   
+  // Build activity lookup structures
+  const activityMap = new Map<string, Activity>();
+  const sortedActivityNames: string[] = [];
+  
+  if (activities.length > 0) {
+    activities.forEach(activity => {
+      const displayName = activity['Display Name'] || activity['code name'];
+      if (displayName && activity.id !== currentActivityId && displayName.toLowerCase() !== 'other') {
+        activityMap.set(displayName.toLowerCase(), activity);
+        sortedActivityNames.push(displayName);
+      }
+    });
+    
+    // Sort by length (longest first) for proper matching
+    sortedActivityNames.sort((a, b) => b.length - a.length);
+  }
+
   // Build tool lookup structures
   const toolMap = new Map<string, Tool>();
   const sortedToolNames: string[] = [];
@@ -74,7 +81,7 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
   if (tools.length > 0) {
     tools.forEach(tool => {
       const displayName = tool['Display Name'] || tool['code name'];
-      if (displayName && tool.id !== currentToolId && displayName.toLowerCase() !== 'other') {
+      if (displayName && displayName.toLowerCase() !== 'other') {
         toolMap.set(displayName.toLowerCase(), tool);
         sortedToolNames.push(displayName);
       }
@@ -88,6 +95,50 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   };
   
+  const processActivityLinks = (text: string): (string | React.JSX.Element)[] => {
+    if (sortedActivityNames.length === 0) {
+      return [text];
+    }
+    
+    let result: (string | React.JSX.Element)[] = [text];
+    
+    sortedActivityNames.forEach((activityName, index) => {
+      const newResult: (string | React.JSX.Element)[] = [];
+      
+      result.forEach((item) => {
+        if (typeof item === 'string') {
+          const regex = new RegExp(`\\b${escapeRegex(activityName)}\\b`, 'gi');
+          const parts = item.split(regex);
+          const matches = item.match(regex) || [];
+          
+          for (let i = 0; i < parts.length; i++) {
+            if (parts[i]) {
+              newResult.push(parts[i]);
+            }
+            if (i < matches.length) {
+              const activity = activityMap.get(activityName.toLowerCase());
+              if (activity) {
+                newResult.push(
+                  <ActivityLink key={`activity-${activity.id}-${index}-${i}`} activity={activity}>
+                    {matches[i]}
+                  </ActivityLink>
+                );
+              } else {
+                newResult.push(matches[i]);
+              }
+            }
+          }
+        } else {
+          newResult.push(item);
+        }
+      });
+      
+      result = newResult;
+    });
+    
+    return result;
+  };
+
   const processToolLinks = (text: string): (string | React.JSX.Element)[] => {
     if (sortedToolNames.length === 0) {
       return [text];
@@ -112,7 +163,7 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
               const tool = toolMap.get(toolName.toLowerCase());
               if (tool) {
                 newResult.push(
-                  <ActivityLink key={`${tool.id}-${index}-${i}`} activity={tool}>
+                  <ActivityLink key={`tool-${tool.id}-${index}-${i}`} activity={tool}>
                     {matches[i]}
                   </ActivityLink>
                 );
@@ -135,13 +186,25 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   
   const formatTextWithLinks = (text: string) => {
-    // First process tool links
-    const withToolLinks = processToolLinks(text);
+    // First process activity links, then tool links
+    const withActivityLinks = processActivityLinks(text);
+    
+    // Process tool links on the result
+    const finalProcessed: (string | React.JSX.Element)[] = [];
+    
+    withActivityLinks.forEach((item) => {
+      if (typeof item === 'string') {
+        const withToolLinks = processToolLinks(item);
+        finalProcessed.push(...withToolLinks);
+      } else {
+        finalProcessed.push(item);
+      }
+    });
     
     // Then process URL links on string parts only
     const finalResult: (string | React.JSX.Element)[] = [];
     
-    withToolLinks.forEach((item, itemIndex) => {
+    finalProcessed.forEach((item, itemIndex) => {
       if (typeof item === 'string') {
         const parts = item.split(urlRegex);
         parts.forEach((part, partIndex) => {
@@ -153,7 +216,7 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline hover:no-underline transition-all duration-200"
-                style={{ color: '#F97316' }}
+                style={{ color: '#6544E9' }}
                 onClick={(e) => e.stopPropagation()}
               >
                 {part}
@@ -220,122 +283,11 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
   return <div>{elements}</div>;
 };
 
-// Inline version for alternatives that don't break to new lines
-const FormattedInlineText = ({ children, tools = [], currentToolId }: FormattedTextProps) => {
-  if (!children) return null;
-  
-  // Build tool lookup structures
-  const toolMap = new Map<string, Tool>();
-  const sortedToolNames: string[] = [];
-  
-  if (tools.length > 0) {
-    tools.forEach(tool => {
-      const displayName = tool['Display Name'] || tool['code name'];
-      if (displayName && tool.id !== currentToolId && displayName.toLowerCase() !== 'other') {
-        toolMap.set(displayName.toLowerCase(), tool);
-        sortedToolNames.push(displayName);
-      }
-    });
-    
-    // Sort by length (longest first) for proper matching
-    sortedToolNames.sort((a, b) => b.length - a.length);
-  }
-  
-  const escapeRegex = (str: string) => {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  };
-  
-  const processToolLinks = (text: string): (string | React.JSX.Element)[] => {
-    if (sortedToolNames.length === 0) {
-      return [text];
-    }
-    
-    let result: (string | React.JSX.Element)[] = [text];
-    
-    sortedToolNames.forEach((toolName, index) => {
-      const newResult: (string | React.JSX.Element)[] = [];
-      
-      result.forEach((item) => {
-        if (typeof item === 'string') {
-          const regex = new RegExp(`\\b${escapeRegex(toolName)}\\b`, 'gi');
-          const parts = item.split(regex);
-          const matches = item.match(regex) || [];
-          
-          for (let i = 0; i < parts.length; i++) {
-            if (parts[i]) {
-              newResult.push(parts[i]);
-            }
-            if (i < matches.length) {
-              const tool = toolMap.get(toolName.toLowerCase());
-              if (tool) {
-                newResult.push(
-                  <ActivityLink key={`${tool.id}-${index}-${i}`} activity={tool}>
-                    {matches[i]}
-                  </ActivityLink>
-                );
-              } else {
-                newResult.push(matches[i]);
-              }
-            }
-          }
-        } else {
-          newResult.push(item);
-        }
-      });
-      
-      result = newResult;
-    });
-    
-    return result;
-  };
-  
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  
-  const formatTextWithLinks = (text: string) => {
-    // First process tool links
-    const withToolLinks = processToolLinks(text);
-    
-    // Then process URL links on string parts only
-    const finalResult: (string | React.JSX.Element)[] = [];
-    
-    withToolLinks.forEach((item, itemIndex) => {
-      if (typeof item === 'string') {
-        const parts = item.split(urlRegex);
-        parts.forEach((part, partIndex) => {
-          if (urlRegex.test(part)) {
-            finalResult.push(
-              <a
-                key={`url-${itemIndex}-${partIndex}`}
-                href={part}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:no-underline transition-all duration-200"
-                style={{ color: '#F97316' }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {part}
-              </a>
-            );
-          } else if (part) {
-            finalResult.push(part);
-          }
-        });
-      } else {
-        finalResult.push(item);
-      }
-    });
-    
-    return finalResult;
-  };
-  
-  // For inline text, just process the links without wrapping in divs
-  return <span>{formatTextWithLinks(children)}</span>;
-};
-
-const TipsSection = ({ content, tools = [], currentToolId }: { 
+const TipsSection = ({ content, activities = [], tools = [], currentActivityId }: { 
   content?: string; 
+  activities?: Activity[];
   tools?: Tool[];
-  currentToolId?: string;
+  currentActivityId?: string;
 }) => {
   const [tipsOpen, setTipsOpen] = useState(false);
   
@@ -351,18 +303,18 @@ const TipsSection = ({ content, tools = [], currentToolId }: {
       <button 
         className="w-full text-left rounded-lg p-3 transition-colors duration-200 focus:outline-none focus:ring-2 bg-gray-100 hover:bg-gray-200"
         style={{ 
-          border: `2px solid #F97316`
+          border: `2px solid #6544E9`
         }}
         onClick={toggleTips}
       >
-        <h4 className="font-extrabold flex items-center gap-2" style={{ color: '#F97316' }}>
+        <h4 className="font-extrabold flex items-center gap-2" style={{ color: '#6544E9' }}>
           <span className={`transform transition-transform ${tipsOpen ? 'rotate-90' : ''}`}>▶</span>
           Tips and Tricks 🎯🧠
         </h4>
       </button>
       {tipsOpen && (
         <div className="mt-2 ml-6">
-          <FormattedText tools={tools} currentToolId={currentToolId}>{content}</FormattedText>
+          <FormattedText activities={activities} tools={tools} currentActivityId={currentActivityId}>{content}</FormattedText>
         </div>
       )}
     </div>
@@ -384,11 +336,11 @@ const DemoSection = ({ demoUrl }: { demoUrl?: string }) => {
       <button 
         className="w-full text-left rounded-lg p-3 transition-colors duration-200 focus:outline-none focus:ring-2 bg-gray-100 hover:bg-gray-200"
         style={{ 
-          border: `2px solid #F97316`
+          border: `2px solid #6544E9`
         }}
         onClick={toggleDemo}
       >
-        <h4 className="font-extrabold flex items-center gap-2" style={{ color: '#F97316' }}>
+        <h4 className="font-extrabold flex items-center gap-2" style={{ color: '#6544E9' }}>
           <span className={`transform transition-transform ${demoOpen ? 'rotate-90' : ''}`}>▶</span>
           Demonstration video 🎥
         </h4>
@@ -402,30 +354,26 @@ const DemoSection = ({ demoUrl }: { demoUrl?: string }) => {
   );
 };
 
-// Tooltip component for badges
-const TooltipBadge = ({ 
-  children, 
-  tooltip, 
-  backgroundColor, 
-  textColor 
-}: { 
-  children: React.ReactNode; 
-  tooltip: string; 
-  backgroundColor: string; 
-  textColor: string; 
-}) => {
+// Tool tooltip component
+const ToolTooltip = ({ tool, children }: { tool: Tool; children: React.ReactNode }) => {
   const [showTooltip, setShowTooltip] = useState(false);
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.open(`/tool/${tool.id}`, '_blank');
+  };
 
   return (
     <span className="relative inline-block">
-      <span 
-        className="px-2 py-1 rounded-full text-xs font-medium font-roboto cursor-help" 
-        style={{ backgroundColor, color: textColor }}
+      <button
+        onClick={handleClick}
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
+        className="px-2 py-1 rounded-full text-xs font-medium font-roboto cursor-pointer transition-all duration-200 hover:shadow-md"
+        style={{ backgroundColor: '#F97316', color: '#FFFFFE' }}
       >
         {children}
-      </span>
+      </button>
       
       {showTooltip && (
         <div 
@@ -441,68 +389,32 @@ const TooltipBadge = ({
               borderTop: '6px solid white'
             }}
           />
-          <div className="text-sm text-gray-700">
-            {tooltip}
-          </div>
-        </div>
-      )}
-    </span>
-  );
-};
-
-// Simple side-positioned tooltip that avoids viewport issues
-const InfoTooltip = ({ content }: { content: string }) => {
-  const [showTooltip, setShowTooltip] = useState(false);
-  const triggerRef = useRef<HTMLSpanElement>(null);
-
-  const [position, setPosition] = useState<'left' | 'right'>('right');
-
-  useEffect(() => {
-    if (showTooltip && triggerRef.current) {
-      const triggerRect = triggerRef.current.getBoundingClientRect();
-      const tooltipWidth = 320;
-      const viewportWidth = window.innerWidth;
-      const margin = 16;
-
-      // Check if there's room on the right, otherwise go left
-      if (triggerRect.right + tooltipWidth + margin > viewportWidth) {
-        setPosition('left');
-      } else {
-        setPosition('right');
-      }
-    }
-  }, [showTooltip]);
-
-  return (
-    <span className="relative inline-block" ref={triggerRef}>
-      <span 
-        className="cursor-help text-gray-400 text-sm"
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
-      >
-        ℹ️
-      </span>
-      
-      {showTooltip && (
-        <div 
-          className={`absolute z-50 p-3 bg-white border rounded-lg shadow-xl w-80 top-0 ${
-            position === 'right' ? 'left-full ml-2' : 'right-full mr-2'
-          }`}
-          style={{ borderColor: '#D1D5DB' }}
-        >
-          {/* Arrow pointing to the trigger */}
-          <div 
-            className={`absolute top-2 w-0 h-0 ${
-              position === 'right' ? '-left-1' : '-right-1'
-            }`}
-            style={{
-              borderTop: '6px solid transparent',
-              borderBottom: '6px solid transparent',
-              [position === 'right' ? 'borderRight' : 'borderLeft']: '6px solid white'
-            }}
-          />
-          <div className="text-sm text-gray-700 whitespace-pre-line">
-            {content}
+          
+          <div className="space-y-2">
+            <h4 className="font-bold text-sm" style={{ color: '#230E77' }}>
+              {tool['Display Name'] || tool['code name']}
+            </h4>
+            
+            <p className="text-xs text-gray-700 leading-relaxed">
+              {tool['Short Description']}
+            </p>
+            
+            <div className="flex flex-wrap gap-1">
+              {tool['Type'] && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#F97316', color: '#FFFFFE' }}>
+                  {tool['Type']}
+                </span>
+              )}
+              {tool['Pillar'] && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#FDBA74', color: '#230E77' }}>
+                  {tool['Pillar']}
+                </span>
+              )}
+            </div>
+            
+            <p className="text-xs text-gray-500 italic">
+              Click to see tool details
+            </p>
           </div>
         </div>
       )}
@@ -511,14 +423,15 @@ const InfoTooltip = ({ content }: { content: string }) => {
 };
 
 interface CardProps {
-  tool: Tool;
+  act: Activity;
   isOpen: boolean;
-  onToggle: (toolId: string) => void;
+  onToggle: (activityId: string) => void;
   cardRef?: (el: HTMLDivElement | null) => void;
+  activities: Activity[];
   tools: Tool[];
 }
 
-const Card = ({ tool, isOpen, onToggle, cardRef, tools }: CardProps) => {
+const Card = ({ act, isOpen, onToggle, cardRef, activities, tools }: CardProps) => {
   const { isStarred, toggleStar } = useStarredActivities();
 
   const handleCardClick = (e: React.MouseEvent) => {
@@ -527,36 +440,36 @@ const Card = ({ tool, isOpen, onToggle, cardRef, tools }: CardProps) => {
         (e.target as HTMLElement).closest('button')) {
       return;
     }
-    onToggle(tool.id);
+    onToggle(act.id);
   };
 
   const handleMiddleClick = (e: React.MouseEvent) => {
     if (e.button === 1) { // Middle mouse button
       e.preventDefault();
-      window.open(`/tool/${tool.id}`, '_blank');
+      window.open(`/activity/${act.id}`, '_blank');
     }
   };
 
   const handleExternalLinkClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.open(`/tool/${tool.id}`, '_blank');
+    window.open(`/activity/${act.id}`, '_blank');
   };
 
   const handleStarClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     
     // If this card is currently open and we're starring it, we'll need to follow it
-    const wasStarred = isStarred(tool.id);
+    const wasStarred = isStarred(act.id);
     const willBeStarred = !wasStarred;
     
     // Toggle the star
-    toggleStar(tool.id);
+    toggleStar(act.id);
     
     // If card is open and moving to starred section, we'll scroll to it after re-render
     if (isOpen && willBeStarred) {
       // Use a short timeout to allow React to re-render the moved card
       setTimeout(() => {
-        const starredCard = document.querySelector(`[data-tool-id="${tool.id}"]`);
+        const starredCard = document.querySelector(`[data-activity-id="${act.id}"]`);
         if (starredCard) {
           starredCard.scrollIntoView({ 
             behavior: 'smooth', 
@@ -567,13 +480,23 @@ const Card = ({ tool, isOpen, onToggle, cardRef, tools }: CardProps) => {
     }
   };
   
-  const whyUrl = getEmbedUrl(tool['Video What and why']);
-  const demoUrl = getEmbedUrl(tool['Video Demo']);
+  const whyUrl = getEmbedUrl(act['Video What and why']);
+  const demoUrl = getEmbedUrl(act['Video Demo']);
+
+  // Get tools for this activity
+  const activityTools = act['Tools'] ? 
+    act['Tools'].split(/;+/).map(toolName => {
+      const trimmed = toolName.trim();
+      return tools.find(tool => 
+        (tool['Display Name'] && tool['Display Name'].toLowerCase() === trimmed.toLowerCase()) ||
+        (tool['code name'] && tool['code name'].toLowerCase() === trimmed.toLowerCase())
+      );
+    }).filter((tool): tool is Tool => tool !== undefined) : [];
 
   return (
     <div 
       ref={cardRef}
-      data-tool-id={tool.id}
+      data-activity-id={act.id}
       onClick={handleCardClick}
       onMouseDown={handleMiddleClick}
       className="cursor-pointer rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300 relative"
@@ -585,15 +508,15 @@ const Card = ({ tool, isOpen, onToggle, cardRef, tools }: CardProps) => {
           onClick={handleStarClick}
           className="p-1.5 rounded-lg transition-all duration-200 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-300"
           style={{ 
-            color: isStarred(tool.id) ? '#F59E0B' : '#9CA3AF'
+            color: isStarred(act.id) ? '#F59E0B' : '#9CA3AF'
           }}
-          title={isStarred(tool.id) ? 'Remove from starred' : 'Add to starred'}
+          title={isStarred(act.id) ? 'Remove from starred' : 'Add to starred'}
         >
           <svg 
             width="16" 
             height="16" 
             viewBox="0 0 24 24" 
-            fill={isStarred(tool.id) ? 'currentColor' : 'none'}
+            fill={isStarred(act.id) ? 'currentColor' : 'none'}
             stroke="currentColor" 
             strokeWidth="2" 
             strokeLinecap="round" 
@@ -606,7 +529,7 @@ const Card = ({ tool, isOpen, onToggle, cardRef, tools }: CardProps) => {
           onClick={handleExternalLinkClick}
           className="external-link-icon p-2 rounded-lg transition-colors duration-200 hover:bg-gray-100 focus:outline-none focus:ring-2"
           style={{ 
-            color: '#F97316'
+            color: '#6544E9'
           }}
           title="Open in new tab"
         >
@@ -627,126 +550,148 @@ const Card = ({ tool, isOpen, onToggle, cardRef, tools }: CardProps) => {
         </button>
       </div>
 
-      {/* Tool feedback button */}
+      {/* Activity feedback button */}
       <div className="absolute bottom-3 right-3 z-10">
         <FeedbackButton 
           type="activity" 
-          activityId={tool.id} 
-          activityName={tool['Display Name'] || tool['code name']}
+          activityId={act.id} 
+          activityName={act['Display Name'] || act['code name']}
         />
       </div>
 
       <header className="p-4 sm:p-6 border-b space-y-2" style={{ borderColor: '#D1D5DB' }}>
         <h2 className="text-xl sm:text-2xl font-extrabold break-words pr-8" style={{ color: '#230E77' }}>
-          {tool['Display Name'] || tool['code name']}
+          {act['Display Name'] || act['code name']}
         </h2>
         <pre className="text-sm whitespace-pre-wrap break-words text-gray-700">
-          {tool['Short Description']}
+          {act['Short Description']}
         </pre>
         <p className="text-xs font-roboto text-gray-400">
-          ID: {tool['id']} &middot; Code: {tool['code name']}
+          ID: {act['id']} &middot; Code: {act['code name']}
         </p>
       </header>
 
       <div className="p-4 sm:p-6 space-y-4 pb-12">
         <div className="flex flex-wrap gap-2">
-          {tool['Type'] && (
-            <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#F97316', color: '#FFFFFE' }}>
-              {tool['Type']}
+          {act['Type'] && (
+            <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#F3CE5B', color: '#230E77' }}>
+              {act['Type']}
             </span>
           )}
-          {tool['Pillar'] && (
-            <TooltipBadge
-              tooltip={PRICING_EXPLANATIONS[tool['Pillar'] as keyof typeof PRICING_EXPLANATIONS] || tool['Pillar']}
-              backgroundColor="#FDBA74"
-              textColor="#230E77"
-            >
-              {tool['Pillar']}
-            </TooltipBadge>
+          {act['Pillar'] && (
+            <span className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#6544E9', color: '#FFFFFE' }}>
+              {act['Pillar']}
+            </span>
           )}
-          {tool['Refold Phase(s)'] && (
-            <TooltipBadge
-              tooltip={TECH_LEVEL_EXPLANATIONS[tool['Refold Phase(s)'] as keyof typeof TECH_LEVEL_EXPLANATIONS] || `Tech Level: ${tool['Refold Phase(s)']}`}
-              backgroundColor="#FED7AA"
-              textColor="#230E77"
-            >
-              Tech Level: {tool['Refold Phase(s)']}
-            </TooltipBadge>
-          )}
+          {act['Refold Phase(s)'] && act['Refold Phase(s)'].split(/;+/).map((p, i) => (
+            <span key={i} className="px-2 py-1 rounded-full text-xs font-medium font-roboto" style={{ backgroundColor: '#BFB2F6', color: '#230E77' }}>
+              Phase {p.trim()}
+            </span>
+          ))}
         </div>
 
-        {/* Languages on separate line */}
-        <div className="text-sm text-gray-600">
-          <strong>Languages:</strong> {
-            !tool['Parent Skills'] || tool['Parent Skills'] === 'All' 
-              ? 'All Languages' 
-              : tool['Parent Skills']
-          }
-        </div>
+        {/* Tools section */}
+        {activityTools.length > 0 && (
+          <div>
+            <div className="text-sm font-medium text-gray-700 mb-2">Recommended Tools:</div>
+            <div className="flex flex-wrap gap-2">
+              {activityTools.map((tool, i) => (
+                <ToolTooltip key={i} tool={tool}>
+                  {tool['Display Name'] || tool['code name']}
+                </ToolTooltip>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-4 text-sm text-gray-600">
-          {tool['parent skills cat'] && (
+          {act['Parent Skills'] && (
             <div className="break-words">
-              <strong>Skills:</strong> {tool['parent skills cat']}
+              <strong>Parent Skills:</strong> {act['Parent Skills']}
             </div>
           )}
-          {tool['Alternatives'] && (
+          {act['Child Techniques'] && act['Child Techniques'] !== '#N/A' && (
             <div className="break-words">
-              <strong>Alternatives:</strong> <FormattedInlineText tools={tools} currentToolId={tool.id}>{tool['Alternatives']}</FormattedInlineText>
+              <strong>Child Techniques:</strong> {act['Child Techniques']}
+            </div>
+          )}
+          {act['Parent Categories'] && (
+            <div className="break-words">
+              <strong>Parent Categories:</strong> {act['Parent Categories'].split(/;+/).map(cat => cat.trim()).filter(Boolean).join(', ')}
+            </div>
+          )}
+          {act['Alternatives'] && (
+            <div className="break-words">
+              <strong>Alternatives:</strong> {act['Alternatives']}
+            </div>
+          )}
+          {act['Sub-techniques'] && (
+            <div className="break-words">
+              <strong>Sub-techniques:</strong> {act['Sub-techniques']}
             </div>
           )}
         </div>
+
+        {act['Aliases'] && (
+          <p className="italic text-sm break-words font-roboto text-gray-600">
+            {act['Aliases']
+              .split(/\r?\n|; ?/)
+              .map(a => a.trim().replace(/^[-–—]\s*/, ''))
+              .filter(Boolean)
+              .join(', ')}
+          </p>
+        )}
       </div>
 
       {isOpen && (
         <div className="p-4 sm:p-6 bg-gray-50 space-y-6">
-          <FormattedText tools={tools} currentToolId={tool.id}>{tool['Long Description']}</FormattedText>
+          <FormattedText activities={activities} tools={tools} currentActivityId={act.id}>{act['Long Description']}</FormattedText>
           {(whyUrl || demoUrl) && (
             <div className="space-y-6">
               {whyUrl && <Video title="What & Why" src={whyUrl} />}
               <DemoSection demoUrl={demoUrl || undefined} />
             </div>
           )}
-          {tool['Benefits'] && (
+          {act['Benefits'] && (
             <div>
               <strong style={{ color: '#230E77' }}>Benefits:</strong>
               <ul className="list-disc list-inside mt-1 text-gray-700">
-                {tool['Benefits'].split(/;+/).map((b, i) => (
+                {act['Benefits'].split(/;+/).map((b, i) => (
                   <li key={i}>{b.trim()}</li>
                 ))}
               </ul>
               <hr className="mt-6 border-gray-300" />
             </div>
           )}
-          {GUIDE_SECTIONS.map(sec => tool[sec] && (
+          {GUIDE_SECTIONS.map(sec => act[sec] && (
             <div key={sec}>
               <h4 className="font-extrabold" style={{ color: '#230E77' }}>
                 {sec.replace('Written Guide - ','')
-                   .replace('Target Audience', 'Who this tool is for')
-                   .replace('Intro', `${tool['Display Name'] || tool['code name']} Overview`)
+                   .replace('Health Routine', 'How this fits into a healthy learning routine')
+                   .replace('Intro', `${act['Display Name'] || act['code name']} Walkthrough`)
                    .replace('Issues', 'Common issues and questions')}
               </h4>
-              <FormattedText tools={tools} currentToolId={tool.id}>{tool[sec]}</FormattedText>
+              <FormattedText activities={activities} tools={tools} currentActivityId={act.id}>{act[sec]}</FormattedText>
             </div>
           ))}
-          <TipsSection content={tool['Written Guide - Tips and Tricks']} tools={tools} currentToolId={tool.id} />
+          <TipsSection content={act['Written Guide - Tips and Tricks']} activities={activities} tools={tools} currentActivityId={act.id} />
         </div>
       )}
     </div>
   );
 };
 
-export default function ToolsPage() {
+export default function Home() {
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [tools, setTools] = useState<Tool[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState({
-    platform: [] as string[],
-    pricing: '',
-    technicalRating: '',
-    languages: [] as string[]
+    pillar: '',
+    phase: '',
+    parentSkill: ''
   });
 
   const { starredIds, isLoaded: starredLoaded } = useStarredActivities();
@@ -768,13 +713,13 @@ export default function ToolsPage() {
     });
   };
 
-  const toggleCard = (toolId: string) => {
+  const toggleCard = (activityId: string) => {
     setExpandedCards(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(toolId)) {
-        newSet.delete(toolId);
+      if (newSet.has(activityId)) {
+        newSet.delete(activityId);
       } else {
-        newSet.add(toolId);
+        newSet.add(activityId);
       }
       return newSet;
     });
@@ -792,24 +737,32 @@ export default function ToolsPage() {
           skipEmptyLines: false,
           complete: (res) => {
             const cleaned = (res.data as Record<string, unknown>[]).map((r) => {
-              const o: Tool = {};
+              const o: Activity | Tool = {};
               Object.entries(r).forEach(([k, v]) => {
                 o[k] = typeof v === 'string' ? v.replace(/\r/g, '').replace(/⏎/g, '\n').trim() : v as string;
               });
               return o;
             });
             
-            // Filter to only show tools (not activities)
-            const toolsOnly = cleaned.filter(item => item.Library === 'Tools');
+            // Separate activities and tools
+            const activitiesOnly = cleaned.filter(item => item.Library === 'Activities') as Activity[];
+            const toolsOnly = cleaned.filter(item => item.Library === 'Tools') as Tool[];
             
             // Sort by ID (convert to number for proper sorting)
-            const sorted = toolsOnly.sort((a, b) => {
+            const sortedActivities = activitiesOnly.sort((a, b) => {
+              const idA = parseInt(a.id) || 0;
+              const idB = parseInt(b.id) || 0;
+              return idA - idB;
+            });
+
+            const sortedTools = toolsOnly.sort((a, b) => {
               const idA = parseInt(a.id) || 0;
               const idB = parseInt(b.id) || 0;
               return idA - idB;
             });
             
-            setTools(sorted);
+            setActivities(sortedActivities);
+            setTools(sortedTools);
             setLoading(false);
           }
         });
@@ -824,107 +777,45 @@ export default function ToolsPage() {
 
   const getUniqueOptions = (field: string): string[] => {
     const values = new Set<string>();
-    tools.forEach(tool => {
-      const value = tool[field];
-      if (value && value.trim()) {
-        values.add(value.trim());
-      }
-    });
-    return Array.from(values).sort();
-  };
-
-  const getUniquePlatforms = (): string[] => {
-    const values = new Set<string>();
-    tools.forEach(tool => {
-      const value = tool['Type'];
-      if (value && value.trim()) {
-        // Split platforms by comma or semicolon and trim
-        value.split(/[,;]+/).forEach(platform => {
-          const trimmed = platform.trim();
-          if (trimmed) values.add(trimmed);
-        });
-      }
-    });
-    return Array.from(values).sort();
-  };
-
-  const getUniqueLanguages = (): string[] => {
-    const values = new Set<string>();
-    tools.forEach(tool => {
-      const value = tool['Parent Skills'];
-      // Only include tools with specific languages (not empty or "All")
-      if (value && value.trim() && value !== 'All') {
-        // Split languages by comma or semicolon and trim
-        value.split(/[,;]+/).forEach(language => {
-          const trimmed = language.trim();
-          if (trimmed) values.add(trimmed);
-        });
+    activities.forEach(act => {
+      const value = act[field];
+      if (value) {
+        if (field === 'Refold Phase(s)') {
+          value.split(/;+/).forEach(phase => {
+            const trimmed = phase.trim();
+            if (trimmed) values.add(trimmed);
+          });
+        } else if (field === 'Parent Skills') {
+          value.split(/[;,]+/).forEach(skill => {
+            const trimmed = skill.trim();
+            if (trimmed) values.add(trimmed);
+          });
+        } else {
+          values.add(value.trim());
+        }
       }
     });
     return Array.from(values).sort();
   };
 
   const clearFilters = () => {
-    setFilters({ platform: [], pricing: '', technicalRating: '', languages: [] });
+    setFilters({ pillar: '', phase: '', parentSkill: '' });
   };
 
-  const togglePlatformFilter = (platform: string) => {
-    setFilters(prev => ({
-      ...prev,
-      platform: prev.platform.includes(platform)
-        ? prev.platform.filter(p => p !== platform)
-        : [...prev.platform, platform]
-    }));
-  };
-
-  const toggleLanguageFilter = (language: string) => {
-    setFilters(prev => ({
-      ...prev,
-      languages: prev.languages.includes(language)
-        ? prev.languages.filter(l => l !== language)
-        : [...prev.languages, language]
-    }));
-  };
-
-  const filtered = tools.filter(tool => {
-    const matchesQuery = Object.values(tool).join(' ').toLowerCase().includes(query.toLowerCase());
-    const matchesPricing = !filters.pricing || tool['Pillar'] === filters.pricing;
+  const filtered = activities.filter(a => {
+    const matchesQuery = Object.values(a).join(' ').toLowerCase().includes(query.toLowerCase());
+    const matchesPillar = !filters.pillar || a['Pillar'] === filters.pillar;
+    const matchesPhase = !filters.phase || 
+      (a['Refold Phase(s)'] && a['Refold Phase(s)'].split(/;+/).some(phase => phase.trim() === filters.phase));
+    const matchesParentSkill = !filters.parentSkill || 
+      (a['Parent Skills'] && a['Parent Skills'].split(/[;,]+/).some(skill => skill.trim() === filters.parentSkill));
     
-    // Technical rating: include all tools with rating <= selected level
-    const matchesTechnicalRating = !filters.technicalRating || 
-      (tool['Refold Phase(s)'] && parseInt(tool['Refold Phase(s)']) <= parseInt(filters.technicalRating));
-    
-    const matchesPlatform = filters.platform.length === 0 || 
-      filters.platform.some(platform => 
-        tool['Type'] && tool['Type'].split(/[,;]+/).some(p => p.trim() === platform)
-      );
-    
-    // Language filtering: include language-agnostic tools (marked as "All" or empty) when any language is selected
-    const matchesLanguages = filters.languages.length === 0 ||
-      !tool['Parent Skills'] || // Include tools with empty language field
-      tool['Parent Skills'] === 'All' || // Include explicitly language-agnostic tools
-      (tool['Parent Skills'] && filters.languages.some(language =>
-        tool['Parent Skills'].split(/[,;]+/).some(l => l.trim() === language)
-      ));
-    
-    return matchesQuery && matchesPricing && matchesTechnicalRating && matchesPlatform && matchesLanguages;
+    return matchesQuery && matchesPillar && matchesPhase && matchesParentSkill;
   });
 
-  // Split into starred and non-starred tools
-  const starredTools = filtered.filter(tool => starredIds.includes(tool.id));
-  const regularTools = filtered.filter(tool => !starredIds.includes(tool.id));
-
-  // Get unique platforms for filter
-  const uniquePlatforms = getUniquePlatforms();
-
-  // Generate tooltip content for filter info icons
-  const pricingTooltipContent = Object.entries(PRICING_EXPLANATIONS)
-    .map(([key, value]) => `${key}: ${value}`)
-    .join('\n\n');
-
-  const techLevelTooltipContent = Object.entries(TECH_LEVEL_EXPLANATIONS)
-    .map(([key, value]) => `${key}: ${value}`)
-    .join('\n\n');
+  // Split into starred and non-starred activities
+  const starredActivities = filtered.filter(a => starredIds.includes(a.id));
+  const regularActivities = filtered.filter(a => !starredIds.includes(a.id));
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -932,7 +823,7 @@ export default function ToolsPage() {
         <header className="mb-8 text-center">
           <div className="flex justify-center items-center gap-4 mb-4">
             <h1 className="text-3xl sm:text-4xl font-extrabold" style={{ color: '#230E77' }}>
-              Refold Tool Library
+              Refold Activity Library
             </h1>
             
             <div className="flex items-center gap-2">
@@ -969,7 +860,7 @@ export default function ToolsPage() {
           </div>
           
           <p className="mt-2 text-sm sm:text-base font-roboto text-gray-600">
-            {loading ? 'Loading tool data...' : `Loaded ${tools.length} tools`}
+            {loading ? 'Loading activity data...' : `Loaded ${activities.length} activities`}
             {starredLoaded && starredIds.length > 0 && ` • ${starredIds.length} starred`}
           </p>
         </header>
@@ -979,129 +870,100 @@ export default function ToolsPage() {
             type="text" 
             value={query} 
             onChange={e => setQuery(e.target.value)} 
-            placeholder="Search tools..." 
+            placeholder="Search activities..." 
             className="w-full px-4 py-3 border-2 rounded-lg bg-white shadow-sm text-base focus:ring-2 focus:ring-opacity-50 text-gray-800"
             style={{ 
               borderColor: '#D1D5DB'
             }}
-            onFocus={(e) => e.target.style.borderColor = '#F97316'}
+            onFocus={(e) => e.target.style.borderColor = '#6544E9'}
             onBlur={(e) => e.target.style.borderColor = '#D1D5DB'}
           />
         </div>
         
-        {tools.length > 0 && (
+        {activities.length > 0 && (
           <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border" style={{ borderColor: '#D1D5DB' }}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-start">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
               <div>
-                <label className="block text-sm font-medium mb-2 font-roboto text-gray-700">Platform</label>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {uniquePlatforms.length > 0 ? uniquePlatforms.map(platform => (
-                    <label key={platform} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={filters.platform.includes(platform)}
-                        onChange={() => togglePlatformFilter(platform)}
-                        className="mr-2 rounded"
-                        style={{ accentColor: '#F97316' }}
-                      />
-                      <span className="text-sm text-gray-700">{platform}</span>
-                    </label>
-                  )) : (
-                    <span className="text-sm text-gray-500">No platforms found</span>
-                  )}
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700 flex items-center gap-1">
-                  Pricing
-                  <InfoTooltip content={pricingTooltipContent} />
-                </label>
+                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700">Pillar</label>
                 <select 
-                  value={filters.pricing} 
-                  onChange={e => setFilters(prev => ({...prev, pricing: e.target.value}))}
+                  value={filters.pillar} 
+                  onChange={e => setFilters(prev => ({...prev, pillar: e.target.value}))}
                   className="w-full px-3 py-2 border rounded bg-white shadow-sm text-sm focus:ring-2 text-gray-800"
                   style={{ 
                     borderColor: '#D1D5DB'
                   }}
                 >
-                  <option value="">All Pricing</option>
+                  <option value="">All Pillars</option>
                   {getUniqueOptions('Pillar').map(option => (
                     <option key={option} value={option}>{option}</option>
                   ))}
                 </select>
               </div>
-
+              
               <div>
-                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700 flex items-center gap-1">
-                  Technical Rating
-                  <InfoTooltip content={techLevelTooltipContent} />
-                </label>
+                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700">Phase</label>
                 <select 
-                  value={filters.technicalRating} 
-                  onChange={e => setFilters(prev => ({...prev, technicalRating: e.target.value}))}
+                  value={filters.phase} 
+                  onChange={e => setFilters(prev => ({...prev, phase: e.target.value}))}
                   className="w-full px-3 py-2 border rounded bg-white shadow-sm text-sm focus:ring-2 text-gray-800"
                   style={{ 
                     borderColor: '#D1D5DB'
                   }}
                 >
-                  <option value="">All Ratings</option>
+                  <option value="">All Phases</option>
                   {getUniqueOptions('Refold Phase(s)').map(option => (
+                    <option key={option} value={option}>Phase {option}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1 font-roboto text-gray-700">Parent Skill</label>
+                <select 
+                  value={filters.parentSkill} 
+                  onChange={e => setFilters(prev => ({...prev, parentSkill: e.target.value}))}
+                  className="w-full px-3 py-2 border rounded bg-white shadow-sm text-sm focus:ring-2 text-gray-800"
+                  style={{ 
+                    borderColor: '#D1D5DB'
+                  }}
+                >
+                  <option value="">All Parent Skills</option>
+                  {getUniqueOptions('Parent Skills').map(option => (
                     <option key={option} value={option}>{option}</option>
                   ))}
                 </select>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2 font-roboto text-gray-700">Languages</label>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {getUniqueLanguages().map(language => (
-                    <label key={language} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={filters.languages.includes(language)}
-                        onChange={() => toggleLanguageFilter(language)}
-                        className="mr-2 rounded"
-                        style={{ accentColor: '#F97316' }}
-                      />
-                      <span className="text-sm text-gray-700">{language}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
               
-              <div className="flex items-end">
-                <button 
-                  onClick={clearFilters}
-                  className="px-4 py-2 text-sm border rounded hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 bg-white"
-                  style={{ 
-                    color: '#F97316',
-                    borderColor: '#F97316'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#F97316'
-                    e.currentTarget.style.color = '#FFFFFE'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#FFFFFE'
-                    e.currentTarget.style.color = '#F97316'
-                  }}
-                >
-                  Clear Filters
-                </button>
-              </div>
+              <button 
+                onClick={clearFilters}
+                className="px-4 py-2 text-sm border rounded hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 bg-white"
+                style={{ 
+                  color: '#6544E9',
+                  borderColor: '#6544E9'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#6544E9'
+                  e.currentTarget.style.color = '#FFFFFE'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#FFFFFE'
+                  e.currentTarget.style.color = '#6544E9'
+                }}
+              >
+                Clear Filters
+              </button>
             </div>
             
             <div className="mt-3 text-sm font-roboto text-gray-600">
-              Showing {filtered.length} of {tools.length} tools
-              {starredTools.length > 0 && ` (${starredTools.length} starred)`}
+              Showing {filtered.length} of {activities.length} activities
+              {starredActivities.length > 0 && ` (${starredActivities.length} starred)`}
             </div>
           </div>
         )}
 
         <div className="space-y-6">
-          {/* Starred Tools Section */}
-          {starredTools.length > 0 && (
+          {/* Starred Activities Section */}
+          {starredActivities.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <svg 
@@ -1114,22 +976,23 @@ export default function ToolsPage() {
                   <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"></polygon>
                 </svg>
                 <h2 className="text-xl font-extrabold" style={{ color: '#230E77' }}>
-                  Starred Tools ({starredTools.length})
+                  Starred Activities ({starredActivities.length})
                 </h2>
               </div>
               <div className="space-y-6">
-                {starredTools.map((tool) => (
+                {starredActivities.map((a) => (
                   <Card 
-                    key={`starred-${tool.id}`} 
-                    tool={tool} 
-                    isOpen={expandedCards.has(tool.id)}
+                    key={`starred-${a.id}`} 
+                    act={a} 
+                    isOpen={expandedCards.has(a.id)}
                     onToggle={toggleCard}
+                    activities={activities}
                     tools={tools}
                   />
                 ))}
               </div>
               
-              {regularTools.length > 0 && (
+              {regularActivities.length > 0 && (
                 <div className="my-8">
                   <hr className="border-gray-300" />
                 </div>
@@ -1137,21 +1000,22 @@ export default function ToolsPage() {
             </div>
           )}
 
-          {/* Regular Tools Section */}
-          {regularTools.length > 0 && (
+          {/* Regular Activities Section */}
+          {regularActivities.length > 0 && (
             <div>
-              {starredTools.length > 0 && (
+              {starredActivities.length > 0 && (
                 <h2 className="text-xl font-extrabold mb-4" style={{ color: '#230E77' }}>
-                  All Tools ({regularTools.length})
+                  All Activities ({regularActivities.length})
                 </h2>
               )}
               <div className="space-y-6">
-                {regularTools.map((tool) => (
+                {regularActivities.map((a) => (
                   <Card 
-                    key={`regular-${tool.id}`} 
-                    tool={tool} 
-                    isOpen={expandedCards.has(tool.id)}
+                    key={`regular-${a.id}`} 
+                    act={a} 
+                    isOpen={expandedCards.has(a.id)}
                     onToggle={toggleCard}
+                    activities={activities}
                     tools={tools}
                   />
                 ))}
@@ -1167,11 +1031,11 @@ export default function ToolsPage() {
           onClick={scrollToTop}
           className="fixed bottom-6 right-6 p-3 rounded-full shadow-lg transition-all duration-300 hover:shadow-xl focus:outline-none focus:ring-2 z-50"
           style={{ 
-            backgroundColor: '#F97316',
+            backgroundColor: '#6544E9',
             color: '#FFFFFE'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#EA580C'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F97316'}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#230E77'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6544E9'}
           title="Scroll to top"
         >
           <svg 
