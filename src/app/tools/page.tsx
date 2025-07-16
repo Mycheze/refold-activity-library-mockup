@@ -1,13 +1,18 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef} from 'react';
 import Papa from 'papaparse';
 import FeedbackButton from '../../components/FeedbackButton';
 import IntroModal from '../../components/IntroModal';
 import ActivityLink from '../../components/ActivityLink';
+import LibraryNavigation from '../../components/LibraryNavigation';
 import { useStarredActivities } from '../../contexts/StarredContext';
 
 interface Tool {
+  [key: string]: string;
+}
+
+interface Activity {
   [key: string]: string;
 }
 
@@ -738,6 +743,7 @@ const Card = ({ tool, isOpen, onToggle, cardRef, tools }: CardProps) => {
 
 export default function ToolsPage() {
   const [tools, setTools] = useState<Tool[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -792,24 +798,32 @@ export default function ToolsPage() {
           skipEmptyLines: false,
           complete: (res) => {
             const cleaned = (res.data as Record<string, unknown>[]).map((r) => {
-              const o: Tool = {};
+              const o: Tool | Activity = {};
               Object.entries(r).forEach(([k, v]) => {
                 o[k] = typeof v === 'string' ? v.replace(/\r/g, '').replace(/⏎/g, '\n').trim() : v as string;
               });
               return o;
             });
             
-            // Filter to only show tools (not activities)
-            const toolsOnly = cleaned.filter(item => item.Library === 'Tools');
+            // Separate activities and tools
+            const activitiesOnly = cleaned.filter(item => item.Library === 'Activities') as Activity[];
+            const toolsOnly = cleaned.filter(item => item.Library === 'Tools') as Tool[];
             
             // Sort by ID (convert to number for proper sorting)
-            const sorted = toolsOnly.sort((a, b) => {
+            const sortedActivities = activitiesOnly.sort((a, b) => {
+              const idA = parseInt(a.id) || 0;
+              const idB = parseInt(b.id) || 0;
+              return idA - idB;
+            });
+
+            const sortedTools = toolsOnly.sort((a, b) => {
               const idA = parseInt(a.id) || 0;
               const idB = parseInt(b.id) || 0;
               return idA - idB;
             });
             
-            setTools(sorted);
+            setActivities(sortedActivities);
+            setTools(sortedTools);
             setLoading(false);
           }
         });
@@ -926,6 +940,11 @@ export default function ToolsPage() {
     .map(([key, value]) => `${key}: ${value}`)
     .join('\n\n');
 
+  const libraries = [
+    { id: 'activities', name: 'Activities', href: '/activities', count: activities.length },
+    { id: 'tools', name: 'Tools', href: '/tools', count: tools.length }
+  ];
+
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="container mx-auto px-4 py-6 max-w-6xl">
@@ -973,6 +992,9 @@ export default function ToolsPage() {
             {starredLoaded && starredIds.length > 0 && ` • ${starredIds.length} starred`}
           </p>
         </header>
+
+        {/* Library Navigation */}
+        <LibraryNavigation currentLibrary="tools" libraries={libraries} />
 
         <div className="flex flex-col gap-4 mb-8">
           <input 

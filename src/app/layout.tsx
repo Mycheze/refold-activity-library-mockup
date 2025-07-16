@@ -18,9 +18,9 @@ const roboto = Roboto({
 })
 
 export const metadata: Metadata = {
-  title: 'Refold Activity Library',
-  description: 'Comprehensive library of language learning activities and techniques for the Refold method',
-  keywords: ['language learning', 'refold', 'immersion', 'activities', 'techniques'],
+  title: 'Refold Activity & Tool Library',
+  description: 'Comprehensive library of language learning activities, techniques, and tools for the Refold method',
+  keywords: ['language learning', 'refold', 'immersion', 'activities', 'techniques', 'tools'],
   authors: [{ name: 'Refold' }],
 }
 

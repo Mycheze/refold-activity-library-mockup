@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import Papa from 'papaparse';
-import FeedbackButton from '../components/FeedbackButton';
-import IntroModal from '../components/IntroModal';
-import ActivityLink from '../components/ActivityLink';
-import { useStarredActivities } from '../contexts/StarredContext';
+import FeedbackButton from '../../components/FeedbackButton';
+import IntroModal from '../../components/IntroModal';
+import ActivityLink from '../../components/ActivityLink';
+import LibraryNavigation from '../../components/LibraryNavigation';
+import { useStarredActivities } from '../../contexts/StarredContext';
 
 interface Activity {
   [key: string]: string;
@@ -681,7 +682,7 @@ const Card = ({ act, isOpen, onToggle, cardRef, activities, tools }: CardProps) 
   );
 };
 
-export default function Home() {
+export default function ActivitiesPage() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [tools, setTools] = useState<Tool[]>([]);
   const [query, setQuery] = useState('');
@@ -817,6 +818,11 @@ export default function Home() {
   const starredActivities = filtered.filter(a => starredIds.includes(a.id));
   const regularActivities = filtered.filter(a => !starredIds.includes(a.id));
 
+  const libraries = [
+    { id: 'activities', name: 'Activities', href: '/activities', count: activities.length },
+    { id: 'tools', name: 'Tools', href: '/tools', count: tools.length }
+  ];
+
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="container mx-auto px-4 py-6 max-w-6xl">
@@ -864,6 +870,9 @@ export default function Home() {
             {starredLoaded && starredIds.length > 0 && ` • ${starredIds.length} starred`}
           </p>
         </header>
+
+        {/* Library Navigation */}
+        <LibraryNavigation currentLibrary="activities" libraries={libraries} />
 
         <div className="flex flex-col gap-4 mb-8">
           <input 

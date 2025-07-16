@@ -40,6 +40,26 @@ const TECH_LEVEL_EXPLANATIONS = {
   '5': 'Very technical. Using and installing the tool might require technical experience and troubleshooting.'
 };
 
+// Helper function to parse markdown links
+const parseMarkdownLink = (text: string): { displayText: string; url: string } => {
+  // Check for markdown link format: [Display Text](https://example.com)
+  const markdownLinkRegex = /^\[([^\]]+)\]\(([^)]+)\)$/;
+  const match = text.match(markdownLinkRegex);
+  
+  if (match) {
+    return {
+      displayText: match[1],
+      url: match[2]
+    };
+  }
+  
+  // If no markdown format found, treat as regular URL
+  return {
+    displayText: text,
+    url: text
+  };
+};
+
 const getEmbedUrl = (url: string): string | null => {
   if (!url) return null;
   const match = url.match(/(?:youtu\.be\/|watch\?v=)([\w-]+)/);
@@ -606,6 +626,9 @@ export default function ToolPage({ params }: { params: Promise<{ id: string }> }
   const whyUrl = getEmbedUrl(tool['Video What and why']);
   const demoUrl = getEmbedUrl(tool['Video Demo']);
 
+  // Parse markdown link for tool URL
+  const toolLinkData = tool['Tools'] ? parseMarkdownLink(tool['Tools']) : null;
+
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="container mx-auto px-4 py-6 max-w-4xl">
@@ -685,17 +708,17 @@ export default function ToolPage({ params }: { params: Promise<{ id: string }> }
                   <strong>Alternatives:</strong> <FormattedInlineText tools={tools} currentToolId={tool.id}>{tool['Alternatives']}</FormattedInlineText>
                 </div>
               )}
-              {tool['Tools'] && (
+              {toolLinkData && (
                 <div className="break-words">
                   <strong>Get the tool:</strong> 
                   <a 
-                    href={tool['Tools']} 
+                    href={toolLinkData.url} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="ml-2 underline hover:no-underline"
                     style={{ color: '#F97316' }}
                   >
-                    {tool['Tools']}
+                    {toolLinkData.displayText}
                   </a>
                 </div>
               )}

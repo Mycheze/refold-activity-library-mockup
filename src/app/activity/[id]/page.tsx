@@ -551,7 +551,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
           <h1 className="text-2xl font-extrabold mb-4" style={{ color: '#230E77' }}>Activity Not Found</h1>
           <p className="text-gray-600 mb-6">The activity with ID &quot;{activityId}&quot; could not be found.</p>
           <Link 
-            href="/" 
+            href="/activities" 
             className="px-4 py-2 rounded-lg transition-colors duration-200"
             style={{ backgroundColor: '#6544E9', color: '#FFFFFE' }}
           >
@@ -581,7 +581,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
         {/* Header with navigation */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <Link 
-            href="/" 
+            href="/activities" 
             className="text-sm flex items-center gap-2 hover:underline"
             style={{ color: '#6544E9' }}
           >
