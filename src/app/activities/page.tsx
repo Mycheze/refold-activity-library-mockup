@@ -834,7 +834,7 @@ export default function ActivitiesPage() {
             
             <div className="flex items-center gap-2">
               {/* Intro/Help modal */}
-              <IntroModal showInitially={true} />
+              <IntroModal showInitially={true} type="activities" />
               
               {/* General feedback button - larger and more visible */}
               <button

@@ -956,7 +956,7 @@ export default function ToolsPage() {
             
             <div className="flex items-center gap-2">
               {/* Intro/Help modal */}
-              <IntroModal showInitially={true} />
+              <IntroModal showInitially={true} type="tools" />
               
               {/* General feedback button - larger and more visible */}
               <button

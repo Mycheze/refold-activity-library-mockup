@@ -6,16 +6,20 @@ import ReactMarkdown from 'react-markdown';
 interface IntroModalProps {
   showInitially?: boolean;
   onClose?: () => void;
+  type?: 'activities' | 'tools';
 }
 
-const IntroModal = ({ showInitially = false, onClose }: IntroModalProps) => {
+const IntroModal = ({ showInitially = false, onClose, type = 'activities' }: IntroModalProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [markdownContent, setMarkdownContent] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
+  const [contentLoaded, setContentLoaded] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const firstH1Seen = useRef(false);
-  const STORAGE_KEY = 'refold-intro-dismissed';
+  
+  // Separate storage keys for activities and tools
+  const STORAGE_KEY = `refold-intro-dismissed-${type}`;
 
   const handleClose = useCallback(() => {
     if (dontShowAgain) {
@@ -23,17 +27,21 @@ const IntroModal = ({ showInitially = false, onClose }: IntroModalProps) => {
     }
     setIsOpen(false);
     onClose?.();
-  }, [dontShowAgain, onClose]);
+  }, [dontShowAgain, onClose, STORAGE_KEY]);
 
-  // Load markdown content
+  // Load markdown content based on type
   useEffect(() => {
     const loadMarkdown = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/intro.md');
+        const filename = type === 'tools' ? 'tools_intro.md' : 'activities_intro.md';
+        const response = await fetch(`/${filename}`);
         if (response.ok) {
           const text = await response.text();
           setMarkdownContent(text);
+          setContentLoaded(true);
+        } else {
+          console.error(`Failed to fetch ${filename}: ${response.status} ${response.statusText}`);
         }
       } catch (error) {
         console.error('Failed to load intro markdown:', error);
@@ -43,7 +51,7 @@ const IntroModal = ({ showInitially = false, onClose }: IntroModalProps) => {
     };
 
     loadMarkdown();
-  }, []);
+  }, [type]);
 
   // Initialize checkbox state from localStorage
   useEffect(() => {
@@ -51,18 +59,18 @@ const IntroModal = ({ showInitially = false, onClose }: IntroModalProps) => {
     if (dismissed) {
       setDontShowAgain(true);
     }
-  }, []);
+  }, [STORAGE_KEY]);
 
   // Check if should show initially
   useEffect(() => {
-    if (showInitially && markdownContent) {
+    if (showInitially && contentLoaded && markdownContent) {
       const dismissed = localStorage.getItem(STORAGE_KEY);
       if (!dismissed) {
         // Delay showing the modal slightly
         setTimeout(() => setIsOpen(true), 1500);
       }
     }
-  }, [showInitially, markdownContent]);
+  }, [showInitially, contentLoaded, markdownContent, STORAGE_KEY]);
 
   // Handle ESC key
   useEffect(() => {
@@ -100,23 +108,25 @@ const IntroModal = ({ showInitially = false, onClose }: IntroModalProps) => {
   };
 
   const openModal = () => {
-    if (markdownContent) {
+    if (contentLoaded && markdownContent) {
       setIsOpen(true);
     }
   };
 
-  if (!markdownContent) {
-    return null;
-  }
+  // Dynamic title based on type
+  const modalTitle = type === 'tools' 
+    ? 'Welcome to Refold Tool Library' 
+    : 'Welcome to Refold Activity Library';
 
   return (
     <>
-      {/* Help button */}
+      {/* Help button - always render */}
       <button
         onClick={openModal}
         className="p-2 rounded-lg transition-colors duration-200 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300"
         style={{ color: '#6B7280' }}
         title="Show introduction"
+        disabled={!contentLoaded}
       >
         <svg 
           width="20" 
@@ -134,8 +144,8 @@ const IntroModal = ({ showInitially = false, onClose }: IntroModalProps) => {
         </svg>
       </button>
 
-      {/* Modal */}
-      {isOpen && (
+      {/* Modal - only render if content is loaded */}
+      {isOpen && contentLoaded && markdownContent && (
         <div 
           className="fixed inset-0 z-50 p-4 md:p-8 lg:p-12 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto"
           onClick={handleBackdropClick}
@@ -153,7 +163,7 @@ const IntroModal = ({ showInitially = false, onClose }: IntroModalProps) => {
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: '#D1D5DB' }}>
               <h2 id="intro-modal-title" className="text-xl font-extrabold" style={{ color: '#230E77' }}>
-                Welcome to Refold Activity Library
+                {modalTitle}
               </h2>
               <button
                 onClick={handleClose}
