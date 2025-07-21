@@ -52,6 +52,26 @@ const getEmbedUrl = (url: string): string | null => {
   return match ? `https://www.youtube.com/embed/${match[1]}` : null;
 };
 
+// Helper function to parse markdown links
+const parseMarkdownLink = (text: string): { displayText: string; url: string } => {
+  // Check for markdown link format: [Display Text](https://example.com)
+  const markdownLinkRegex = /^\[([^\]]+)\]\(([^)]+)\)$/;
+  const match = text.match(markdownLinkRegex);
+  
+  if (match) {
+    return {
+      displayText: match[1],
+      url: match[2]
+    };
+  }
+  
+  // If no markdown format found, treat as regular URL
+  return {
+    displayText: text,
+    url: text
+  };
+};
+
 const Video = ({ title, src }: { title: string; src: string }) => (
   <div>
     <h3 className="font-semibold mb-2">{title}</h3>
@@ -118,7 +138,7 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
               const tool = toolMap.get(toolName.toLowerCase());
               if (tool) {
                 newResult.push(
-                  <ActivityLink key={`${tool.id}-${index}-${i}`} activity={tool}>
+                  <ActivityLink key={`${currentToolId}-${tool.id}-${index}-${i}`} activity={tool}>
                     {matches[i]}
                   </ActivityLink>
                 );
@@ -154,7 +174,7 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
           if (urlRegex.test(part)) {
             finalResult.push(
               <a
-                key={`url-${itemIndex}-${partIndex}`}
+                key={`url-${currentToolId}-${itemIndex}-${partIndex}`}
                 href={part}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -190,9 +210,9 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
     } else {
       if (currentList.length > 0) {
         elements.push(
-          <ul key={`list-${i}`} className="list-disc list-inside mb-2 space-y-1">
+          <ul key={`list-${currentToolId}-${i}`} className="list-disc list-inside mb-2 space-y-1">
             {currentList.map((item, idx) => (
-              <li key={idx} className="text-gray-700">
+              <li key={`${currentToolId}-${idx}`} className="text-gray-700">
                 {formatTextWithLinks(item)}
               </li>
             ))}
@@ -203,7 +223,7 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
       
       if (trimmed || elements.length === 0) {
         elements.push(
-          <div key={`text-${i}`} className={`${trimmed ? "mb-2" : "mb-1"} text-gray-700`}>
+          <div key={`text-${currentToolId}-${i}`} className={`${trimmed ? "mb-2" : "mb-1"} text-gray-700`}>
             {line ? formatTextWithLinks(line) : '\u00A0'}
           </div>
         );
@@ -213,9 +233,9 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
   
   if (currentList.length > 0) {
     elements.push(
-      <ul key="list-final" className="list-disc list-inside mb-2 space-y-1">
+      <ul key={`list-final-${currentToolId}`} className="list-disc list-inside mb-2 space-y-1">
         {currentList.map((item, idx) => (
-          <li key={idx} className="text-gray-700">
+          <li key={`${currentToolId}-final-${idx}`} className="text-gray-700">
             {formatTextWithLinks(item)}
           </li>
         ))}
@@ -275,7 +295,7 @@ const FormattedInlineText = ({ children, tools = [], currentToolId }: FormattedT
               const tool = toolMap.get(toolName.toLowerCase());
               if (tool) {
                 newResult.push(
-                  <ActivityLink key={`${tool.id}-${index}-${i}`} activity={tool}>
+                  <ActivityLink key={`inline-${currentToolId}-${tool.id}-${index}-${i}`} activity={tool}>
                     {matches[i]}
                   </ActivityLink>
                 );
@@ -311,7 +331,7 @@ const FormattedInlineText = ({ children, tools = [], currentToolId }: FormattedT
           if (urlRegex.test(part)) {
             finalResult.push(
               <a
-                key={`url-${itemIndex}-${partIndex}`}
+                key={`inline-url-${currentToolId}-${itemIndex}-${partIndex}`}
                 href={part}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -706,6 +726,25 @@ const Card = ({ tool, isOpen, onToggle, cardRef, tools }: CardProps) => {
 
       {isOpen && (
         <div className="p-4 sm:p-6 bg-gray-50 space-y-6">
+          {/* Tool URL section */}
+          {(() => {
+            const toolLinkData = tool['Tools'] ? parseMarkdownLink(tool['Tools']) : null;
+            return toolLinkData ? (
+              <div className="break-words text-sm text-gray-600">
+                <strong>Get the tool:</strong> 
+                <a 
+                  href={toolLinkData.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="ml-2 underline hover:no-underline"
+                  style={{ color: '#F97316' }}
+                >
+                  {toolLinkData.displayText}
+                </a>
+              </div>
+            ) : null;
+          })()}
+          
           <FormattedText tools={tools} currentToolId={tool.id}>{tool['Long Description']}</FormattedText>
           {(whyUrl || demoUrl) && (
             <div className="space-y-6">
