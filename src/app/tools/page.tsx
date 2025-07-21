@@ -7,6 +7,7 @@ import IntroModal from '../../components/IntroModal';
 import ActivityLink from '../../components/ActivityLink';
 import LibraryNavigation from '../../components/LibraryNavigation';
 import { useStarredActivities } from '../../contexts/StarredContext';
+import { searchWithScoring } from '../../lib/search';
 
 interface Tool {
   [key: string]: string;
@@ -900,8 +901,10 @@ export default function ToolsPage() {
     }));
   };
 
-  const filtered = tools.filter(tool => {
-    const matchesQuery = Object.values(tool).join(' ').toLowerCase().includes(query.toLowerCase());
+  // Apply search scoring first, then other filters
+  const searchResults = searchWithScoring(tools, query);
+  
+  const filtered = searchResults.filter(tool => {
     const matchesPricing = !filters.pricing || tool['Pillar'] === filters.pricing;
     
     // Technical rating: include all tools with rating <= selected level
@@ -921,7 +924,7 @@ export default function ToolsPage() {
         tool['Parent Skills'].split(/[,;]+/).some(l => l.trim() === language)
       ));
     
-    return matchesQuery && matchesPricing && matchesTechnicalRating && matchesPlatform && matchesLanguages;
+    return matchesPricing && matchesTechnicalRating && matchesPlatform && matchesLanguages;
   });
 
   // Split into starred and non-starred tools

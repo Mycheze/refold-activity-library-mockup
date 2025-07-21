@@ -7,6 +7,7 @@ import IntroModal from '../../components/IntroModal';
 import ActivityLink from '../../components/ActivityLink';
 import LibraryNavigation from '../../components/LibraryNavigation';
 import { useStarredActivities } from '../../contexts/StarredContext';
+import { searchWithScoring } from '../../lib/search';
 
 interface Activity {
   [key: string]: string;
@@ -803,15 +804,17 @@ export default function ActivitiesPage() {
     setFilters({ pillar: '', phase: '', parentSkill: '' });
   };
 
-  const filtered = activities.filter(a => {
-    const matchesQuery = Object.values(a).join(' ').toLowerCase().includes(query.toLowerCase());
+  // Apply search scoring first, then other filters
+  const searchResults = searchWithScoring(activities, query);
+  
+  const filtered = searchResults.filter(a => {
     const matchesPillar = !filters.pillar || a['Pillar'] === filters.pillar;
     const matchesPhase = !filters.phase || 
       (a['Refold Phase(s)'] && a['Refold Phase(s)'].split(/;+/).some(phase => phase.trim() === filters.phase));
     const matchesParentSkill = !filters.parentSkill || 
       (a['Parent Skills'] && a['Parent Skills'].split(/[;,]+/).some(skill => skill.trim() === filters.parentSkill));
     
-    return matchesQuery && matchesPillar && matchesPhase && matchesParentSkill;
+    return matchesPillar && matchesPhase && matchesParentSkill;
   });
 
   // Split into starred and non-starred activities
