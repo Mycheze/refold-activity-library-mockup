@@ -90,12 +90,119 @@ const Video = ({ title, src }: { title: string; src: string }) => (
   </div>
 );
 
+// Tooltip component for badges
+const TooltipBadge = ({ 
+  children, 
+  tooltip, 
+  backgroundColor, 
+  textColor 
+}: { 
+  children: React.ReactNode; 
+  tooltip: string; 
+  backgroundColor: string; 
+  textColor: string; 
+}) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  return (
+    <span className="relative inline-block">
+      <span 
+        className="px-2 py-1 rounded-full text-xs font-medium font-roboto cursor-help" 
+        style={{ backgroundColor, color: textColor }}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+      >
+        {children}
+      </span>
+      
+      {showTooltip && (
+        <div 
+          className="absolute z-50 p-3 bg-white border rounded-lg shadow-xl w-80 -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full"
+          style={{ borderColor: '#D1D5DB' }}
+        >
+          {/* Tooltip arrow */}
+          <div 
+            className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0"
+            style={{
+              borderLeft: '6px solid transparent',
+              borderRight: '6px solid transparent',
+              borderTop: '6px solid white'
+            }}
+          />
+          <div className="text-sm text-gray-700">
+            {tooltip}
+          </div>
+        </div>
+      )}
+    </span>
+  );
+};
+
+// Simple side-positioned tooltip that avoids viewport issues
+const InfoTooltip = ({ content }: { content: string }) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const triggerRef = useRef<HTMLSpanElement>(null);
+  const [position, setPosition] = useState<'left' | 'right'>('right');
+
+  useEffect(() => {
+    if (showTooltip && triggerRef.current) {
+      const triggerRect = triggerRef.current.getBoundingClientRect();
+      const tooltipWidth = 320;
+      const viewportWidth = window.innerWidth;
+      const margin = 16;
+
+      // Check if there's room on the right, otherwise go left
+      if (triggerRect.right + tooltipWidth + margin > viewportWidth) {
+        setPosition('left');
+      } else {
+        setPosition('right');
+      }
+    }
+  }, [showTooltip]);
+
+  return (
+    <span className="relative inline-block" ref={triggerRef}>
+      <span 
+        className="cursor-help text-gray-400 text-sm"
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+      >
+        ℹ️
+      </span>
+      
+      {showTooltip && (
+        <div 
+          className={`absolute z-50 p-3 bg-white border rounded-lg shadow-xl w-80 top-0 ${
+            position === 'right' ? 'left-full ml-2' : 'right-full mr-2'
+          }`}
+          style={{ borderColor: '#D1D5DB' }}
+        >
+          {/* Arrow pointing to the trigger */}
+          <div 
+            className={`absolute top-2 w-0 h-0 ${
+              position === 'right' ? '-left-1' : '-right-1'
+            }`}
+            style={{
+              borderTop: '6px solid transparent',
+              borderBottom: '6px solid transparent',
+              [position === 'right' ? 'borderRight' : 'borderLeft']: '6px solid white'
+            }}
+          />
+          <div className="text-sm text-gray-700 whitespace-pre-line">
+            {content}
+          </div>
+        </div>
+      )}
+    </span>
+  );
+};
+
 const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextProps) => {
-  if (!children) return null;
-  
-  // Generate unique component instance ID
+  // Generate unique component instance ID - MUST be called before any conditional returns
   const instanceId = React.useId();
   const contextId = `${currentToolId || 'unknown'}-${instanceId}`;
+  
+  if (!children) return null;
   
   // Build tool lookup structures
   const toolMap = new Map<string, Tool>();
@@ -252,11 +359,11 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
 
 // Inline version for alternatives that don't break to new lines
 const FormattedInlineText = ({ children, tools = [], currentToolId }: FormattedTextProps) => {
-  if (!children) return null;
-  
-  // Generate unique component instance ID
+  // Generate unique component instance ID - MUST be called before any conditional returns
   const instanceId = React.useId();
   const contextId = `inline-${currentToolId || 'unknown'}-${instanceId}`;
+  
+  if (!children) return null;
   
   // Build tool lookup structures
   const toolMap = new Map<string, Tool>();
@@ -433,114 +540,6 @@ const DemoSection = ({ demoUrl }: { demoUrl?: string }) => {
         </div>
       )}
     </div>
-  );
-};
-
-// Tooltip component for badges
-const TooltipBadge = ({ 
-  children, 
-  tooltip, 
-  backgroundColor, 
-  textColor 
-}: { 
-  children: React.ReactNode; 
-  tooltip: string; 
-  backgroundColor: string; 
-  textColor: string; 
-}) => {
-  const [showTooltip, setShowTooltip] = useState(false);
-
-  return (
-    <span className="relative inline-block">
-      <span 
-        className="px-2 py-1 rounded-full text-xs font-medium font-roboto cursor-help" 
-        style={{ backgroundColor, color: textColor }}
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
-      >
-        {children}
-      </span>
-      
-      {showTooltip && (
-        <div 
-          className="absolute z-50 p-3 bg-white border rounded-lg shadow-xl w-80 -top-2 left-1/2 transform -translate-x-1/2 -translate-y-full"
-          style={{ borderColor: '#D1D5DB' }}
-        >
-          {/* Tooltip arrow */}
-          <div 
-            className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0"
-            style={{
-              borderLeft: '6px solid transparent',
-              borderRight: '6px solid transparent',
-              borderTop: '6px solid white'
-            }}
-          />
-          <div className="text-sm text-gray-700">
-            {tooltip}
-          </div>
-        </div>
-      )}
-    </span>
-  );
-};
-
-// Simple side-positioned tooltip that avoids viewport issues
-const InfoTooltip = ({ content }: { content: string }) => {
-  const [showTooltip, setShowTooltip] = useState(false);
-  const triggerRef = useRef<HTMLSpanElement>(null);
-
-  const [position, setPosition] = useState<'left' | 'right'>('right');
-
-  useEffect(() => {
-    if (showTooltip && triggerRef.current) {
-      const triggerRect = triggerRef.current.getBoundingClientRect();
-      const tooltipWidth = 320;
-      const viewportWidth = window.innerWidth;
-      const margin = 16;
-
-      // Check if there's room on the right, otherwise go left
-      if (triggerRect.right + tooltipWidth + margin > viewportWidth) {
-        setPosition('left');
-      } else {
-        setPosition('right');
-      }
-    }
-  }, [showTooltip]);
-
-  return (
-    <span className="relative inline-block" ref={triggerRef}>
-      <span 
-        className="cursor-help text-gray-400 text-sm"
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
-      >
-        ℹ️
-      </span>
-      
-      {showTooltip && (
-        <div 
-          className={`absolute z-50 p-3 bg-white border rounded-lg shadow-xl w-80 top-0 ${
-            position === 'right' ? 'left-full ml-2' : 'right-full mr-2'
-          }`}
-          style={{ borderColor: '#D1D5DB' }}
-        >
-          {/* Arrow pointing to the trigger */}
-          <div 
-            className={`absolute top-2 w-0 h-0 ${
-              position === 'right' ? '-left-1' : '-right-1'
-            }`}
-            style={{
-              borderTop: '6px solid transparent',
-              borderBottom: '6px solid transparent',
-              [position === 'right' ? 'borderRight' : 'borderLeft']: '6px solid white'
-            }}
-          />
-          <div className="text-sm text-gray-700 whitespace-pre-line">
-            {content}
-          </div>
-        </div>
-      )}
-    </span>
   );
 };
 
