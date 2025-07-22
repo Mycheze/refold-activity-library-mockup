@@ -93,6 +93,10 @@ const Video = ({ title, src }: { title: string; src: string }) => (
 const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextProps) => {
   if (!children) return null;
   
+  // Generate unique component instance ID
+  const instanceId = React.useId();
+  const contextId = `${currentToolId || 'unknown'}-${instanceId}`;
+  
   // Build tool lookup structures
   const toolMap = new Map<string, Tool>();
   const sortedToolNames: string[] = [];
@@ -138,7 +142,7 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
               const tool = toolMap.get(toolName.toLowerCase());
               if (tool) {
                 newResult.push(
-                  <ActivityLink key={`${currentToolId}-${tool.id}-${index}-${i}`} activity={tool}>
+                  <ActivityLink key={`${contextId}-${tool.id}-${index}-${i}`} activity={tool}>
                     {matches[i]}
                   </ActivityLink>
                 );
@@ -174,7 +178,7 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
           if (urlRegex.test(part)) {
             finalResult.push(
               <a
-                key={`url-${currentToolId}-${itemIndex}-${partIndex}`}
+                key={`url-${contextId}-${itemIndex}-${partIndex}`}
                 href={part}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -210,9 +214,9 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
     } else {
       if (currentList.length > 0) {
         elements.push(
-          <ul key={`list-${currentToolId}-${i}`} className="list-disc list-inside mb-2 space-y-1">
+          <ul key={`list-${contextId}-${i}`} className="list-disc list-inside mb-2 space-y-1">
             {currentList.map((item, idx) => (
-              <li key={`${currentToolId}-${idx}`} className="text-gray-700">
+              <li key={`${contextId}-${idx}`} className="text-gray-700">
                 {formatTextWithLinks(item)}
               </li>
             ))}
@@ -223,7 +227,7 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
       
       if (trimmed || elements.length === 0) {
         elements.push(
-          <div key={`text-${currentToolId}-${i}`} className={`${trimmed ? "mb-2" : "mb-1"} text-gray-700`}>
+          <div key={`text-${contextId}-${i}`} className={`${trimmed ? "mb-2" : "mb-1"} text-gray-700`}>
             {line ? formatTextWithLinks(line) : '\u00A0'}
           </div>
         );
@@ -233,9 +237,9 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
   
   if (currentList.length > 0) {
     elements.push(
-      <ul key={`list-final-${currentToolId}`} className="list-disc list-inside mb-2 space-y-1">
+      <ul key={`list-final-${contextId}`} className="list-disc list-inside mb-2 space-y-1">
         {currentList.map((item, idx) => (
-          <li key={`${currentToolId}-final-${idx}`} className="text-gray-700">
+          <li key={`${contextId}-final-${idx}`} className="text-gray-700">
             {formatTextWithLinks(item)}
           </li>
         ))}
@@ -249,6 +253,10 @@ const FormattedText = ({ children, tools = [], currentToolId }: FormattedTextPro
 // Inline version for alternatives that don't break to new lines
 const FormattedInlineText = ({ children, tools = [], currentToolId }: FormattedTextProps) => {
   if (!children) return null;
+  
+  // Generate unique component instance ID
+  const instanceId = React.useId();
+  const contextId = `inline-${currentToolId || 'unknown'}-${instanceId}`;
   
   // Build tool lookup structures
   const toolMap = new Map<string, Tool>();
@@ -295,7 +303,7 @@ const FormattedInlineText = ({ children, tools = [], currentToolId }: FormattedT
               const tool = toolMap.get(toolName.toLowerCase());
               if (tool) {
                 newResult.push(
-                  <ActivityLink key={`inline-${currentToolId}-${tool.id}-${index}-${i}`} activity={tool}>
+                  <ActivityLink key={`${contextId}-${tool.id}-${index}-${i}`} activity={tool}>
                     {matches[i]}
                   </ActivityLink>
                 );
@@ -331,7 +339,7 @@ const FormattedInlineText = ({ children, tools = [], currentToolId }: FormattedT
           if (urlRegex.test(part)) {
             finalResult.push(
               <a
-                key={`inline-url-${currentToolId}-${itemIndex}-${partIndex}`}
+                key={`url-${contextId}-${itemIndex}-${partIndex}`}
                 href={part}
                 target="_blank"
                 rel="noopener noreferrer"
